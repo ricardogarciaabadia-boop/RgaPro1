@@ -1,20 +1,47 @@
 package com.rgapro1.ocaso;
 
+import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private TextView text(String value, float size, int color, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
+        view.setGravity(Gravity.CENTER);
+        view.setTypeface(bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        return view;
+    }
+
+    private Button actionButton(String label, final String message) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextSize(16);
+        button.setAllCaps(false);
+        button.setMinHeight(dp(52));
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+        return button;
     }
 
     @Override
@@ -24,101 +51,55 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(245, 247, 250));
-        root.setPadding(dp(20), dp(20), dp(20), dp(20));
 
-        TextView title = new TextView(this);
-        title.setText("RgaPro");
-        title.setTextSize(30);
-        title.setTextColor(Color.rgb(20, 55, 100));
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(10), 0, dp(25));
+        TextView header = text("RgaPro", 28, Color.WHITE, true);
+        header.setBackgroundColor(Color.rgb(20, 55, 100));
+        header.setPadding(dp(16), 0, dp(16), 0);
+        root.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(68)));
 
-        root.addView(title,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
 
-        TextView welcome = new TextView(this);
-        welcome.setText("Bienvenido a RgaPro");
-        welcome.setTextSize(24);
-        welcome.setTextColor(Color.rgb(25, 35, 50));
-        welcome.setGravity(Gravity.CENTER);
-        welcome.setPadding(0, dp(10), 0, dp(10));
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setGravity(Gravity.CENTER_HORIZONTAL);
+        content.setPadding(dp(20), dp(24), dp(20), dp(30));
 
-        root.addView(welcome,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
+        TextView welcome = text("Bienvenido a RgaPro", 24, Color.rgb(25, 35, 50), true);
+        content.addView(welcome, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)));
 
-        TextView description = new TextView(this);
-        description.setText("Tu aplicación de gestión profesional.");
-        description.setTextSize(17);
-        description.setTextColor(Color.DKGRAY);
-        description.setGravity(Gravity.CENTER);
-        description.setPadding(0, 0, 0, dp(25));
+        TextView description = text("Tu aplicación de gestión profesional.", 17, Color.DKGRAY, false);
+        LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(54));
+        content.addView(description, descriptionParams);
 
-        root.addView(description,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
+        Button clientes = actionButton("CLIENTES", "Módulo de clientes");
+        content.addView(clientes, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(55)));
 
-        Button clientes = new Button(this);
-        clientes.setText("CLIENTES");
-        clientes.setOnClickListener(v ->
-                Toast.makeText(this, "Módulo de clientes", Toast.LENGTH_SHORT).show()
-        );
-
-        root.addView(clientes,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(55)
-                ));
-
-        Button documentos = new Button(this);
-        documentos.setText("DOCUMENTOS");
-        documentos.setOnClickListener(v ->
-                Toast.makeText(this, "Módulo de documentos", Toast.LENGTH_SHORT).show()
-        );
-
-        LinearLayout.LayoutParams documentosParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(55)
-                );
+        Button documentos = actionButton("DOCUMENTOS", "Módulo de documentos");
+        LinearLayout.LayoutParams documentosParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(55));
         documentosParams.topMargin = dp(12);
+        content.addView(documentos, documentosParams);
 
-        root.addView(documentos, documentosParams);
-
-        Button configuracion = new Button(this);
-        configuracion.setText("CONFIGURACIÓN");
-        configuracion.setOnClickListener(v ->
-                Toast.makeText(this, "Configuración", Toast.LENGTH_SHORT).show()
-        );
-
-        LinearLayout.LayoutParams configuracionParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(55)
-                );
+        Button configuracion = actionButton("CONFIGURACIÓN", "Configuración");
+        LinearLayout.LayoutParams configuracionParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(55));
         configuracionParams.topMargin = dp(12);
+        content.addView(configuracion, configuracionParams);
 
-        root.addView(configuracion, configuracionParams);
+        TextView version = text("RgaPro V1.0", 14, Color.GRAY, false);
+        LinearLayout.LayoutParams versionParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(60));
+        versionParams.topMargin = dp(30);
+        content.addView(version, versionParams);
 
-        TextView version = new TextView(this);
-        version.setText("RgaPro V1.0");
-        version.setTextSize(14);
-        version.setTextColor(Color.GRAY);
-        version.setGravity(Gravity.CENTER);
-        version.setPadding(0, dp(30), 0, 0);
-
-        root.addView(version,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
+        scroll.addView(content);
+        root.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         setContentView(root);
     }
