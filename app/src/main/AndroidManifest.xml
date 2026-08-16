@@ -3,7 +3,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Mi Cartera Ocaso"
+        android:label="RgaPro"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
