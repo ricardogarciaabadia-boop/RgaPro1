@@ -1,4 +1,3 @@
-```java id="r9x4k2"
 package com.rgapro1.ocaso;
 
 import android.app.Activity;
@@ -39,4 +38,3 @@ public class MainActivity extends Activity {
         setContentView(layout);
     }
 }
-```
