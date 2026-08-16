@@ -1,0 +1,20 @@
+RgaPro v8 — APK privada preparada
+
+Se ha incorporado el logotipo RGA PRO como icono de la aplicación.
+
+La aplicación está preparada para:
+- acceso biométrico
+- activación mediante código
+- carteras individuales
+- compartición controlada de clientes
+- permisos por usuario
+- servidor privado
+- base para documentos/OCR y calendario
+
+IMPORTANTE:
+Este archivo es un PROYECTO Android, no un APK compilado.
+Para instalarlo directamente en un Android hace falta compilarlo y firmarlo.
+En este entorno no hay Android SDK/Gradle disponible para generar el .apk.
+
+No usar con datos reales hasta completar y auditar backend, autenticación,
+cifrado, sincronización, backups y controles de autorización.
