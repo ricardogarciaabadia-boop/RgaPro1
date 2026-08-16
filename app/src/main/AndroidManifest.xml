@@ -16,6 +16,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".ExpiryNotificationReceiver" android:exported="false" />
+        <receiver android:name=".ExpiryNotificationReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <provider
+            android:name=".ExpiryAlarmProvider"
+            android:authorities="com.rgapro1.ocaso.expiryprovider"
+            android:exported="false"
+            android:initOrder="100" />
     </application>
 </manifest>

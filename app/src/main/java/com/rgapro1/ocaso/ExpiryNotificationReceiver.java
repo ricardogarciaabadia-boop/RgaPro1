@@ -8,18 +8,74 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.Locale;
 
 public class ExpiryNotificationReceiver extends BroadcastReceiver {
-    private static final String CHANNEL="rgapro_expiry";
-    @Override public void onReceive(Context c, Intent i){
-        NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(new NotificationChannel(CHANNEL,"Vencimientos de pólizas",NotificationManager.IMPORTANCE_DEFAULT));
-        Set<String> set=c.getSharedPreferences("rgapro_local",Context.MODE_PRIVATE).getStringSet("policies",new HashSet<>());
-        int id=1000;
-        for(String raw:set){try{JSONObject p=new JSONObject(raw);long days=days(p.optString("expiry"));if(days>=0&&days<=30){String key="notice_"+p.optString("id")+"_"+new SimpleDateFormat("yyyyMMdd",Locale.US).format(new Date());if(c.getSharedPreferences("rgapro_local",Context.MODE_PRIVATE).getBoolean(key,false))continue;Intent open=new Intent(c,MainActivity.class);PendingIntent pi=PendingIntent.getActivity(c,id,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);String when=days==0?"vence hoy":days==1?"vence mañana":"vence en "+days+" días";Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(c,CHANNEL):new Notification.Builder(c);b.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("RgaPro · Próximo vencimiento").setContentText(p.optString("holder")+" · "+p.optString("number")+" · "+when).setStyle(new Notification.BigTextStyle().bigText("La póliza de "+p.optString("holder")+" ("+p.optString("type")+") "+when+".")).setAutoCancel(true).setContentIntent(pi);nm.notify(id++,b.build());c.getSharedPreferences("rgapro_local",Context.MODE_PRIVATE).edit().putBoolean(key,true).apply();}}catch(Exception ignored){}}
+    private static final String CHANNEL = "rgapro_expiry";
+
+    @Override public void onReceive(Context context, Intent intent) {
+        if ("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())
+                || "android.intent.action.MY_PACKAGE_REPLACED".equals(intent.getAction())) {
+            ExpiryAlarmScheduler.scheduleAll(context);
+            return;
+        }
+        if (!"com.rgapro1.ocaso.EXPIRY".equals(intent.getAction())) return;
+
+        String user = intent.getStringExtra("user");
+        String policyId = intent.getStringExtra("policy_id");
+        int days = intent.getIntExtra("days", -1);
+        if (user == null || policyId == null || days < 0) return;
+
+        JSONObject policy = findPolicy(context, user, policyId);
+        if (policy == null) return;
+        showNotification(context, user, policy, days);
+        ExpiryAlarmScheduler.schedulePolicy(context, user, policy);
     }
-    private long days(String s){try{return (new SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(s).getTime()-System.currentTimeMillis())/86400000L;}catch(Exception e){return Long.MAX_VALUE;}}
+
+    private JSONObject findPolicy(Context context, String user, String id) {
+        try {
+            JSONObject users = new JSONObject(context.getSharedPreferences("rgapro_local", Context.MODE_PRIVATE)
+                    .getString("users_json", "{}"));
+            JSONObject account = users.optJSONObject(user);
+            JSONArray policies = account == null ? null : account.optJSONArray("policies");
+            if (policies == null) return null;
+            for (int i = 0; i < policies.length(); i++) {
+                JSONObject p = policies.optJSONObject(i);
+                if (p != null && id.equals(p.optString("id", user + "_" + p.optString("number")))) return p;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private void showNotification(Context context, String user, JSONObject p, int days) {
+        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Vencimientos de pólizas", NotificationManager.IMPORTANCE_DEFAULT));
+        }
+        String noticeKey = "notice_" + user + "_" + p.optString("id", p.optString("number")) + "_" + days + "_" +
+                new SimpleDateFormat("yyyyMMdd", Locale.US).format(new Date());
+        if (context.getSharedPreferences("rgapro_local", Context.MODE_PRIVATE).getBoolean(noticeKey, false)) return;
+
+        int id = Math.abs(noticeKey.hashCode());
+        Intent open = new Intent(context, MainActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(context, id, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        String when = days + " días";
+        String text = p.optString("holder") + " · " + p.optString("number") + " · vence en " + when;
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
+        builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("RgaPro · Vencimiento")
+                .setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText("La póliza de " + p.optString("holder") +
+                        " (" + p.optString("type") + ") vence en " + when + ". Usuario: " + user + "."))
+                .setAutoCancel(true).setContentIntent(pi);
+        nm.notify(id, builder.build());
+        context.getSharedPreferences("rgapro_local", Context.MODE_PRIVATE).edit().putBoolean(noticeKey, true).apply();
+    }
 }
