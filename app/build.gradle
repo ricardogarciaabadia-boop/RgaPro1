@@ -13,6 +13,12 @@ android {
         versionCode 7
         versionName '1.6'
     }
+
+    packagingOptions {
+        jniLibs {
+            keepDebugSymbols += ['**/libmlkit_google_ocr_pipeline.so']
+        }
+    }
 }
 
 dependencies {
