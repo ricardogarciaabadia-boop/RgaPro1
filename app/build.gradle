@@ -23,3 +23,17 @@ dependencies {
     implementation 'com.google.mlkit:text-recognition:16.0.1'
     implementation 'com.google.android.gms:play-services-mlkit-document-scanner:16.0.0'
 }
+
+tasks.register('fixBiometricHost') {
+    doLast {
+        def source = file('src/main/java/com/rgapro1/ocaso/MainActivity.java')
+        def text = source.getText('UTF-8')
+        text = text.replace('import android.app.Activity;', 'import androidx.fragment.app.FragmentActivity;')
+        text = text.replace('public class MainActivity extends Activity', 'public class MainActivity extends FragmentActivity')
+        source.write(text, 'UTF-8')
+    }
+}
+
+tasks.named('preBuild') {
+    dependsOn('fixBiometricHost')
+}
