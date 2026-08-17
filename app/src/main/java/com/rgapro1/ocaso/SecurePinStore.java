@@ -1,13 +1,13 @@
 package com.rgapro1.ocaso;
 
 import android.content.Context;
+import android.util.Base64;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.MessageDigest;
-import java.util.Base64;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -39,8 +39,8 @@ public final class SecurePinStore {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
         byte[] encrypted = cipher.doFinal(pin.getBytes(StandardCharsets.UTF_8));
-        String value = Base64.getEncoder().encodeToString(cipher.getIV()) + "." +
-                Base64.getEncoder().encodeToString(encrypted);
+        String value = Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + "." +
+                Base64.encodeToString(encrypted, Base64.NO_WRAP);
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(VALUE, value).apply();
     }
@@ -53,8 +53,8 @@ public final class SecurePinStore {
             if (value == null) return false;
             String[] parts = value.split("\\.", 2);
             if (parts.length != 2) return false;
-            byte[] iv = Base64.getDecoder().decode(parts[0]);
-            byte[] encrypted = Base64.getDecoder().decode(parts[1]);
+            byte[] iv = Base64.decode(parts[0], Base64.DEFAULT);
+            byte[] encrypted = Base64.decode(parts[1], Base64.DEFAULT);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
             byte[] plain = cipher.doFinal(encrypted);
