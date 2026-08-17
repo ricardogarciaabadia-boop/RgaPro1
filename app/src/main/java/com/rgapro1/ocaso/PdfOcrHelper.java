@@ -2,7 +2,6 @@ package com.rgapro1.ocaso;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
@@ -13,8 +12,6 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import androidx.annotation.NonNull;
 
 public final class PdfOcrHelper {
     public interface Callback {
@@ -35,9 +32,11 @@ public final class PdfOcrHelper {
                 final int pages = renderer.getPageCount();
                 if (pages == 0) throw new IOException("El PDF no contiene páginas");
 
-                StringBuilder all = new StringBuilder();
-                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-                AtomicInteger remaining = new AtomicInteger(pages);
+                final String[] pageTexts = new String[pages];
+                final Exception[] pageErrors = new Exception[pages];
+                final AtomicInteger remaining = new AtomicInteger(pages);
+                final TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+
                 for (int i = 0; i < pages; i++) {
                     android.graphics.pdf.PdfRenderer.Page page = renderer.openPage(i);
                     int width = Math.max(1200, page.getWidth() * 2);
@@ -46,22 +45,31 @@ public final class PdfOcrHelper {
                     page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
                     page.close();
                     InputImage image = InputImage.fromBitmap(bitmap, 0);
-                    final int pageNumber = i + 1;
+                    final int index = i;
                     recognizer.process(image)
-                            .addOnSuccessListener(result -> {
-                                synchronized (all) {
-                                    all.append("\n--- Página ").append(pageNumber).append(" ---\n").append(result.getText()).append('\n');
-                                }
+                            .addOnSuccessListener(result -> pageTexts[index] = result.getText())
+                            .addOnFailureListener(error -> pageErrors[index] = error)
+                            .addOnCompleteListener(task -> {
                                 bitmap.recycle();
                                 if (remaining.decrementAndGet() == 0) {
                                     recognizer.close();
-                                    callback.onSuccess(all.toString().trim());
+                                    StringBuilder all = new StringBuilder();
+                                    boolean hasError = false;
+                                    for (int p = 0; p < pages; p++) {
+                                        all.append("\n--- Página ").append(p + 1).append(" ---\n");
+                                        if (pageTexts[p] != null) all.append(pageTexts[p]);
+                                        if (pageErrors[p] != null) {
+                                            hasError = true;
+                                            all.append("[No se pudo leer esta página]");
+                                        }
+                                        all.append('\n');
+                                    }
+                                    if (hasError && all.toString().trim().isEmpty()) {
+                                        callback.onError(new IOException("No se pudo leer ninguna página del PDF"));
+                                    } else {
+                                        callback.onSuccess(all.toString().trim());
+                                    }
                                 }
-                            })
-                            .addOnFailureListener(error -> {
-                                bitmap.recycle();
-                                if (remaining.decrementAndGet() == 0) recognizer.close();
-                                callback.onError(error);
                             });
                 }
                 renderer.close();
