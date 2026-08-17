@@ -10,8 +10,8 @@ android {
         applicationId 'com.rgapro1.ocaso'
         minSdk 23
         targetSdk 35
-        versionCode 5
-        versionName '1.4'
+        versionCode 6
+        versionName '1.5'
     }
 }
 
@@ -24,23 +24,25 @@ dependencies {
     implementation 'com.google.android.gms:play-services-mlkit-document-scanner:16.0.0'
 }
 
-// Evita duplicados de Kotlin antiguos arrastrados por dependencias del escáner.
-// kotlin-stdlib 1.8.x ya integra las implementaciones JDK7/JDK8.
 configurations.configureEach {
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }
 
-tasks.register('fixBiometricHost') {
+tasks.register('fixSources') {
     doLast {
         def source = file('src/main/java/com/rgapro1/ocaso/MainActivity.java')
         def text = source.getText('UTF-8')
         text = text.replace('import android.app.Activity;', 'import androidx.fragment.app.FragmentActivity;')
         text = text.replace('public class MainActivity extends Activity', 'public class MainActivity extends FragmentActivity')
+        text = text.replace('private static final int ITER=120000, CAMERA_REQ=7101, GALLERY_REQ=7102;', 'private static final int ITER=120000, CAMERA_REQ=7101, GALLERY_REQ=7102, PDF_REQ=7103;')
+        text = text.replace('gallery.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_GET_CONTENT);i.setType("image/*");startActivityForResult(i,GALLERY_REQ);});}', 'gallery.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_GET_CONTENT);i.setType("image/jpeg");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,GALLERY_REQ);});Button pdf=action("📄  Elegir un PDF",false);pdf.setGravity(Gravity.CENTER);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54));pp.topMargin=dp(10);content.addView(pdf,pp);pdf.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("application/pdf");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,PDF_REQ);});}')
+        text = text.replace('else if(request==GALLERY_REQ&&data!=null)uri=data.getData();if(uri!=null)runOcr(uri);}', 'else if(request==GALLERY_REQ&&data!=null)uri=data.getData();else if(request==PDF_REQ&&data!=null)uri=data.getData();if(uri!=null){if(request==PDF_REQ)runPdfOcr(uri);else runOcr(uri);}}')
+        text = text.replace('private void runOcr(Uri uri){', 'private void runPdfOcr(Uri uri){Toast.makeText(this,"Leyendo PDF…",Toast.LENGTH_SHORT).show();PdfOcrHelper.process(this,uri,new PdfOcrHelper.Callback(){public void onSuccess(String text){runOnUiThread(()->showOcrResult(text));}public void onError(Exception e){runOnUiThread(()->Toast.makeText(MainActivity.this,"No se pudo leer el PDF. Comprueba que no esté protegido.",Toast.LENGTH_LONG).show());}});}\n    private void runOcr(Uri uri){')
         source.write(text, 'UTF-8')
     }
 }
 
 tasks.named('preBuild') {
-    dependsOn('fixBiometricHost')
+    dependsOn('fixSources')
 }
