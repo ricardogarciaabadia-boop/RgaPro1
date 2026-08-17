@@ -39,3 +39,5 @@ jobs:
           name: RgaPro-debug-limpio
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # Compilación activada con Gradle instalado por setup-gradle; no depende de ./gradlew.
