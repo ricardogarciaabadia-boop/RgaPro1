@@ -1,11 +1,12 @@
 package com.rgapro1.ocaso.data.local;
 
+import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
 @Entity(tableName = "clients")
 public class ClientEntity {
-    @PrimaryKey public String clientId;
+    @NonNull @PrimaryKey public String clientId;
     public String identityType;
     public String identityNumber;
     public String name;
