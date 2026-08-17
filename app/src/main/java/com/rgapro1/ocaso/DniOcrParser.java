@@ -32,7 +32,6 @@ public final class DniOcrParser {
         r.issueDate = dateAfterLabel(lines, "EMISION", "EMISIÓN", "FECHA DE EMISION", "FECHA DE EMISIÓN");
         r.validityDate = dateAfterLabel(lines, "VALIDEZ", "CADUCIDAD", "FECHA DE CADUCIDAD");
 
-        // La fecha de nacimiento puede aparecer con separadores distintos o sin etiqueta.
         Matcher birth = Pattern.compile("(?:NACIMIENTO|NAC)[^0-9]{0,12}(\\d{2}[ /.-]\\d{2}[ /.-]\\d{4})").matcher(upper);
         if (birth.find()) r.birthDate = normalizeDate(birth.group(1));
         if (r.birthDate.isEmpty()) {
@@ -95,7 +94,6 @@ public final class DniOcrParser {
             if (r.nationality.isEmpty() && mrz.contains("ESP")) r.nationality = "ESP";
         }
 
-        // Si el frontal entrega nombre/apellidos, el titular se forma de manera consistente.
         if (!r.name.isEmpty() || !r.surname.isEmpty()) r.holder = (r.name + " " + r.surname).trim();
         if (r.holder.isEmpty()) {
             Matcher fallback = Pattern.compile("\\b([A-ZÁÉÍÓÚÑ]{3,})\\s+([A-ZÁÉÍÓÚÑ]{3,})\\s+([A-ZÁÉÍÓÚÑ]{3,})\\b").matcher(upper);
@@ -120,7 +118,6 @@ public final class DniOcrParser {
 
     private static String normalizeOcr(String s) {
         return s.toUpperCase(Locale.ROOT)
-                .replace('0','O')
                 .replace("N0MBRE", "NOMBRE")
                 .replace("APELLlDOS", "APELLIDOS")
                 .replace("NACIMlENTO", "NACIMIENTO")
