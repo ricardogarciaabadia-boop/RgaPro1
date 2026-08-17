@@ -2,61 +2,91 @@ package com.rgapro1.ocaso.security;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
+import java.security.KeyStore;
+import java.security.MessageDigest;
 
-/** Stores only a salted PBKDF2 verifier, never the clear PIN. */
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+/** Stores the PIN encrypted with an Android Keystore AES-256 key. */
 public final class SecurePinStore {
     private static final String PREF = "rgapro_security";
-    private static final String SALT = "pin_salt";
-    private static final String HASH = "pin_hash";
-    private static final int ITERATIONS = 120000;
-    private static final int KEY_BITS = 256;
+    private static final String VALUE = "pin_ciphertext";
+    private static final String IV = "pin_iv";
+    private static final String ALIAS = "rgapro_pin_aes";
+    private static final String KS = "AndroidKeyStore";
+    private final Context context;
     private final SharedPreferences prefs;
 
     public SecurePinStore(Context context) {
-        prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE);
+        this.context = context.getApplicationContext();
+        prefs = this.context.getSharedPreferences(PREF, Context.MODE_PRIVATE);
     }
 
     public void setPin(String pin) {
         if (pin == null || !pin.matches("\\d{6}")) throw new IllegalArgumentException("PIN must contain 6 digits");
-        byte[] salt = new byte[16];
-        new SecureRandom().nextBytes(salt);
-        byte[] hash = derive(pin, salt);
-        prefs.edit()
-                .putString(SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
-                .putString(HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
-                .apply();
+        try {
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+            byte[] ciphertext = cipher.doFinal(pin.getBytes(StandardCharsets.UTF_8));
+            prefs.edit()
+                    .putString(VALUE, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
+                    .putString(IV, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
+                    .apply();
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to protect PIN", e);
+        }
     }
 
     public boolean verify(String pin) {
+        if (pin == null) return false;
         try {
-            String salt64 = prefs.getString(SALT, null);
-            String hash64 = prefs.getString(HASH, null);
-            if (salt64 == null || hash64 == null) return false;
-            byte[] actual = derive(pin, Base64.decode(salt64, Base64.NO_WRAP));
-            byte[] expected = Base64.decode(hash64, Base64.NO_WRAP);
-            if (actual.length != expected.length) return false;
-            int diff = 0;
-            for (int i = 0; i < actual.length; i++) diff |= actual[i] ^ expected[i];
-            return diff == 0;
+            String ciphertext64 = prefs.getString(VALUE, null);
+            String iv64 = prefs.getString(IV, null);
+            if (ciphertext64 == null || iv64 == null) return false;
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(),
+                    new GCMParameterSpec(128, Base64.decode(iv64, Base64.NO_WRAP)));
+            byte[] expected = cipher.doFinal(Base64.decode(ciphertext64, Base64.NO_WRAP));
+            return MessageDigest.isEqual(expected, pin.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             return false;
         }
     }
 
-    public boolean isConfigured() { return prefs.contains(SALT) && prefs.contains(HASH); }
+    public boolean isConfigured() {
+        return prefs.contains(VALUE) && prefs.contains(IV);
+    }
 
-    private byte[] derive(String pin, byte[] salt) {
+    public void clear() {
+        prefs.edit().remove(VALUE).remove(IV).apply();
         try {
-            PBEKeySpec spec = new PBEKeySpec(pin.toCharArray(), salt, ITERATIONS, KEY_BITS);
-            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(spec).getEncoded();
-        } catch (Exception e) {
-            throw new IllegalStateException("Unable to derive PIN verifier", e);
+            KeyStore keyStore = KeyStore.getInstance(KS);
+            keyStore.load(null);
+            if (keyStore.containsAlias(ALIAS)) keyStore.deleteEntry(ALIAS);
+        } catch (Exception ignored) { }
+    }
+
+    private SecretKey getOrCreateKey() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(KS);
+        keyStore.load(null);
+        if (keyStore.containsAlias(ALIAS)) {
+            return ((KeyStore.SecretKeyEntry) keyStore.getEntry(ALIAS, null)).getSecretKey();
         }
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KS);
+        generator.init(new KeyGenParameterSpec.Builder(ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setKeySize(256)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build());
+        return generator.generateKey();
     }
 }
