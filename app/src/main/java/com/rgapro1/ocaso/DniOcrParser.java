@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Parser específico para DNI español. Usa texto OCR frontal y MRZ posterior. */
+/** Parser específico para DNI/NIE español. Combina texto frontal y MRZ posterior. */
 public final class DniOcrParser {
     public static final class Result {
         public String holder="", surname="", name="", dni="", birthDate="", nationality="", sex="";
@@ -18,10 +18,9 @@ public final class DniOcrParser {
     public static Result parse(String raw) {
         Result r = new Result();
         String text = raw == null ? "" : raw.replace('\r','\n');
-        String upper = text.toUpperCase(Locale.ROOT);
+        String upper = normalizeOcr(text);
         String[] lines = upper.split("\\n");
 
-        // Datos legibles del anverso.
         r.surname = labeled(lines, "APELLIDOS");
         r.name = labeled(lines, "NOMBRE");
         r.nationality = labeled(lines, "NACIONALIDAD");
@@ -29,17 +28,24 @@ public final class DniOcrParser {
         r.address = labeledOrNext(lines, "DOMICILIO");
         r.birthPlace = labeledOrNext(lines, "LUGAR DE NACIMIENTO");
         r.parents = labeledOrNext(lines, "HIJO/A DE", "HIJO DE");
-        r.supportNumber = labeledOrNext(lines, "NUM SOPORTE", "Nº SOPORTE", "N° SOPORTE");
-        r.issueDate = dateAfterLabel(lines, "EMISION", "EMISIÓN");
-        r.validityDate = dateAfterLabel(lines, "VALIDEZ", "CADUCIDAD");
+        r.supportNumber = labeledOrNext(lines, "NUM SOPORTE", "Nº SOPORTE", "N° SOPORTE", "NUMERO SOPORTE");
+        r.issueDate = dateAfterLabel(lines, "EMISION", "EMISIÓN", "FECHA DE EMISION", "FECHA DE EMISIÓN");
+        r.validityDate = dateAfterLabel(lines, "VALIDEZ", "CADUCIDAD", "FECHA DE CADUCIDAD");
 
-        Matcher dates = Pattern.compile("\\b(\\d{2})[ /.-](\\d{2})[ /.-](\\d{4})\\b").matcher(upper);
+        // La fecha de nacimiento puede aparecer con separadores distintos o sin etiqueta.
+        Matcher birth = Pattern.compile("(?:NACIMIENTO|NAC)[^0-9]{0,12}(\\d{2}[ /.-]\\d{2}[ /.-]\\d{4})").matcher(upper);
+        if (birth.find()) r.birthDate = normalizeDate(birth.group(1));
         if (r.birthDate.isEmpty()) {
-            Matcher m = Pattern.compile("(?:NACIMIENTO|NAC)[^0-9]{0,8}(\\d{2}[ /.-]\\d{2}[ /.-]\\d{4})").matcher(upper);
-            if (m.find()) r.birthDate = normalizeDate(m.group(1));
+            Matcher allDates = Pattern.compile("\\b(\\d{2})[ /.-](\\d{2})[ /.-](\\d{4})\\b").matcher(upper);
+            while (allDates.find()) {
+                String candidate = normalizeDate(allDates.group());
+                if (!candidate.equals(r.issueDate) && !candidate.equals(r.validityDate)) {
+                    r.birthDate = candidate;
+                    break;
+                }
+            }
         }
 
-        // DNI/NIE: priorizar un número de 8 cifras + letra.
         Matcher id = Pattern.compile("(?<![0-9])[0-9]{8}[A-Z](?![A-Z0-9])").matcher(upper);
         if (id.find()) r.dni = id.group();
         if (r.dni.isEmpty()) {
@@ -47,7 +53,6 @@ public final class DniOcrParser {
             if (nie.find()) r.dni = nie.group();
         }
 
-        // Buscar las líneas MRZ. ML Kit puede insertar espacios en "ID ESP" o "C I D".
         StringBuilder mrzLines = new StringBuilder();
         for (String line : lines) {
             String compact = compactMrz(line);
@@ -66,7 +71,6 @@ public final class DniOcrParser {
                 if (anyId.find()) r.dni = anyId.group(1);
             }
 
-            // Nombre MRZ: APELLIDO1<APELLIDO2<<NOMBRE1<NOMBRE2
             Matcher names = Pattern.compile("([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)*)<<([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)*)").matcher(mrz);
             if (names.find()) {
                 String s = names.group(1).replace('<',' ').trim().replaceAll("\\s+"," ");
@@ -75,14 +79,12 @@ public final class DniOcrParser {
                 if (!n.isEmpty()) r.name = n;
             }
 
-            // MRZ española: YYMMDD + dígito de control + sexo + YYMMDD + dígito de control.
             Matcher datesMrz = Pattern.compile("(\\d{6})\\d([MF])(\\d{6})\\d").matcher(mrz.replace("<", ""));
             if (datesMrz.find()) {
                 r.birthDate = mrzDate(datesMrz.group(1));
                 r.sex = datesMrz.group(2);
                 r.validityDate = mrzDate(datesMrz.group(3));
             } else {
-                // Tolerancia adicional cuando OCR pierde uno de los dígitos de control.
                 Matcher loose = Pattern.compile("(\\d{6})\\d?([MF])(\\d{6})").matcher(mrz.replace("<", ""));
                 if (loose.find()) {
                     r.birthDate = mrzDate(loose.group(1));
@@ -93,9 +95,8 @@ public final class DniOcrParser {
             if (r.nationality.isEmpty() && mrz.contains("ESP")) r.nationality = "ESP";
         }
 
-        if (r.holder.isEmpty()) {
-            if (!r.name.isEmpty() || !r.surname.isEmpty()) r.holder = (r.name + " " + r.surname).trim();
-        }
+        // Si el frontal entrega nombre/apellidos, el titular se forma de manera consistente.
+        if (!r.name.isEmpty() || !r.surname.isEmpty()) r.holder = (r.name + " " + r.surname).trim();
         if (r.holder.isEmpty()) {
             Matcher fallback = Pattern.compile("\\b([A-ZÁÉÍÓÚÑ]{3,})\\s+([A-ZÁÉÍÓÚÑ]{3,})\\s+([A-ZÁÉÍÓÚÑ]{3,})\\b").matcher(upper);
             if (fallback.find()) {
@@ -104,7 +105,6 @@ public final class DniOcrParser {
                 r.holder = r.name + " " + r.surname;
             }
         }
-        if (r.holder.isEmpty()) r.holder = (r.name + " " + r.surname).trim();
 
         int total=0;
         if(!r.dni.isEmpty()) total+=25;
@@ -118,10 +118,17 @@ public final class DniOcrParser {
         return r;
     }
 
-    private static String labeled(String[] lines, String label) {
-        String value = labeledOrNext(lines, label);
-        return value;
+    private static String normalizeOcr(String s) {
+        return s.toUpperCase(Locale.ROOT)
+                .replace('0','O')
+                .replace("N0MBRE", "NOMBRE")
+                .replace("APELLlDOS", "APELLIDOS")
+                .replace("NACIMlENTO", "NACIMIENTO")
+                .replace("VALlDEZ", "VALIDEZ")
+                .replace("EMlSION", "EMISION");
     }
+
+    private static String labeled(String[] lines, String label) { return labeledOrNext(lines, label); }
 
     private static String labeledOrNext(String[] lines, String... labels) {
         for (int i=0;i<lines.length;i++) {
