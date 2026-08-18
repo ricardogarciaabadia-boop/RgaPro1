@@ -1,6 +1,7 @@
 package com.rgapro1.ocaso;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Base64;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
@@ -43,6 +44,20 @@ public final class SecurePinStore {
                 Base64.encodeToString(encrypted, Base64.NO_WRAP);
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(VALUE, value).apply();
+    }
+
+    /** Migrates a legacy plaintext PIN once. The caller must then stop using the legacy key. */
+    public boolean migrateLegacyPin(SharedPreferences legacyPrefs, String legacyKey) {
+        if (hasPin() || legacyPrefs == null || legacyKey == null) return hasPin();
+        String legacyPin = legacyPrefs.getString(legacyKey, null);
+        if (legacyPin == null || !legacyPin.matches("\\d{6}")) return false;
+        try {
+            setPin(legacyPin);
+            legacyPrefs.edit().remove(legacyKey).apply();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public boolean verifyPin(String pin) {
