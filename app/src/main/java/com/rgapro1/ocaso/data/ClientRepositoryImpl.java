@@ -23,13 +23,26 @@ public final class ClientRepositoryImpl implements AutoCloseable {
 
     public void upsert(ClientEntity client) {
         if (client == null) return;
-        io.execute(() -> dao.upsert(client));
+        io.execute(() -> {
+            String identity = normalizeIdentity(client.identityNumber);
+            if (!identity.isEmpty()) {
+                ClientEntity existing = dao.findByIdentity(identity);
+                if (existing != null && !existing.clientId.equals(client.clientId)) {
+                    client.clientId = existing.clientId;
+                    client.createdAt = existing.createdAt;
+                }
+                client.identityNumber = identity;
+            }
+            if (client.createdAt <= 0) client.createdAt = System.currentTimeMillis();
+            client.updatedAt = System.currentTimeMillis();
+            dao.upsert(client);
+        });
     }
 
     public void search(String query, String identity, ResultCallback callback) {
         if (callback == null) return;
         final String safeQuery = query == null ? "" : query.trim();
-        final String safeIdentity = identity == null ? "" : identity.trim().toUpperCase(Locale.ROOT);
+        final String safeIdentity = normalizeIdentity(identity);
         io.execute(() -> {
             try {
                 List<ClientEntity> result = dao.search(safeQuery, safeIdentity);
@@ -38,6 +51,11 @@ public final class ClientRepositoryImpl implements AutoCloseable {
                 main.post(() -> callback.onError(e));
             }
         });
+    }
+
+    private static String normalizeIdentity(String value) {
+        if (value == null) return "";
+        return value.trim().toUpperCase(Locale.ROOT).replace(" ", "").replace("-", "");
     }
 
     @Override public void close() {
