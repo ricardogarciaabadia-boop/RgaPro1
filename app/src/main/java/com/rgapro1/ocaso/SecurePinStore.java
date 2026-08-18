@@ -48,7 +48,11 @@ public final class SecurePinStore {
 
     /** Migrates a legacy plaintext PIN once and removes the legacy value. */
     public boolean migrateLegacyPin(SharedPreferences legacyPrefs, String legacyKey) {
-        if (hasPin() || legacyPrefs == null || legacyKey == null) return hasPin();
+        if (legacyPrefs == null || legacyKey == null) return false;
+        if (hasPin()) {
+            legacyPrefs.edit().remove(legacyKey).apply();
+            return true;
+        }
         String legacyPin = legacyPrefs.getString(legacyKey, null);
         if (legacyPin == null || !legacyPin.matches("\\d{6}")) return false;
         try {
