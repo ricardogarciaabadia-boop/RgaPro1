@@ -68,21 +68,15 @@ public final class ClientAutoLinker {
                 JSONObject doc = docs.optJSONObject(j);
                 if (doc == null || doc.optBoolean("ocrEnhanced", false)) continue;
                 String path = doc.optString("path", "");
-                if (path.isEmpty() || path.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
-                    doc.put("ocrEnhanced", true);
-                    continue;
-                }
+                if (path.isEmpty() || path.toLowerCase(Locale.ROOT).endsWith(".pdf")) { doc.put("ocrEnhanced", true); continue; }
                 try {
                     File f = new File(path);
                     if (!f.exists()) { doc.put("ocrEnhanced", true); continue; }
                     InputImage image = InputImage.fromFilePath(context, Uri.fromFile(f));
                     TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
                     String text;
-                    try {
-                        text = Tasks.await(recognizer.process(image)).getText();
-                    } finally {
-                        recognizer.close();
-                    }
+                    try { text = Tasks.await(recognizer.process(image)).getText(); }
+                    finally { recognizer.close(); }
                     if (text != null && !text.trim().isEmpty()) {
                         String old = client.optString("ocrText", "");
                         if (!old.contains(text.trim())) client.put("ocrText", (old.isEmpty() ? "" : old + "\n\n--- OCR SEGUNDA PASADA ---\n") + text.trim());
@@ -135,7 +129,7 @@ public final class ClientAutoLinker {
         if(!ai.isEmpty()&&!bi.isEmpty()) return ai.equals(bi);
         String ae=norm(a.optString("email","")),be=norm(b.optString("email","")); if(!ae.isEmpty()&&!be.isEmpty()&&ae.equals(be))return true;
         String ap=digits(a.optString("phone","")),bp=digits(b.optString("phone","")); if(!ap.isEmpty()&&!bp.isEmpty()&&ap.equals(bp))return true;
-        String an=norm(fullName(a)),bn=norm(fullName(b));
+        String an=normName(fullName(a)),bn=normName(fullName(b));
         if(!an.isEmpty()&&!bn.isEmpty()&&(an.equals(bn)||an.contains(bn)||bn.contains(an)))return true;
         if(!an.isEmpty()&&!bn.isEmpty()){String[]at=an.split(" "),bt=bn.split(" ");int common=0;for(String x:at)for(String y:bt)if(x.length()>2&&x.equals(y))common++;if(common>=2)return true;}
         return false;
@@ -159,6 +153,7 @@ public final class ClientAutoLinker {
     private static String id(JSONObject p){String x=p.optString("identityNumber",p.optString("holderDni",""));if(x.trim().isEmpty())x=p.optString("cif","");return x;}
     private static String fullName(JSONObject p){String h=p.optString("holder","");if(!h.isEmpty())return h;return(p.optString("name","")+" "+p.optString("surname","")).trim();}
     private static String norm(String s){if(s==null)return"";return Normalizer.normalize(s.toUpperCase(Locale.ROOT),Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^A-Z0-9]","");}
+    private static String normName(String s){if(s==null)return"";return Normalizer.normalize(s.toUpperCase(Locale.ROOT),Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^A-Z0-9 ]","").replaceAll("\\s+"," ").trim();}
     private static String digits(String s){return s==null?"":s.replaceAll("\\D","");}
     private static String first(Pattern p,String s){Matcher m=p.matcher(s==null?"":s);return m.find()?m.group():"";}
     private static String policyNumber(String s){Matcher m=POLICY.matcher(s==null?"":s);return m.find()?m.group(1).trim():"";}
