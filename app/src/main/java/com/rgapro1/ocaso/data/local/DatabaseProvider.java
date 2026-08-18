@@ -14,8 +14,12 @@ public final class DatabaseProvider {
             synchronized (DatabaseProvider.class) {
                 result = instance;
                 if (result == null) {
-                    result = Room.databaseBuilder(context.getApplicationContext(), AppDatabase.class, "rgapro.db")
-                            .fallbackToDestructiveMigration()
+                    result = Room.databaseBuilder(
+                                    context.getApplicationContext(),
+                                    AppDatabase.class,
+                                    "rgapro.db")
+                            // Never silently destroy client/document data on a schema mismatch.
+                            // Future schema changes must ship an explicit Room Migration.
                             .build();
                     instance = result;
                 }
