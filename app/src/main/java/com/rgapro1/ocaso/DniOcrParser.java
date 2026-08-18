@@ -45,11 +45,19 @@ public final class DniOcrParser {
             }
         }
 
-        Matcher id = Pattern.compile("(?<![0-9])[0-9]{8}[A-Z](?![A-Z0-9])").matcher(upper);
-        if (id.find()) r.dni = id.group();
+        Matcher id = Pattern.compile("(?<![0-9])([0-9]{8}[A-Z])(?![A-Z0-9])").matcher(upper);
+        while (id.find()) {
+            String candidate = id.group(1);
+            if (isValidDni(candidate)) { r.dni = candidate; break; }
+            if (r.dni.isEmpty()) r.dni = candidate;
+        }
         if (r.dni.isEmpty()) {
-            Matcher nie = Pattern.compile("(?<![A-Z0-9])[XYZ][0-9]{7}[A-Z](?![A-Z0-9])").matcher(upper);
-            if (nie.find()) r.dni = nie.group();
+            Matcher nie = Pattern.compile("(?<![A-Z0-9])([XYZ][0-9]{7}[A-Z])(?![A-Z0-9])").matcher(upper);
+            while (nie.find()) {
+                String candidate = nie.group(1);
+                if (isValidNie(candidate)) { r.dni = candidate; break; }
+                if (r.dni.isEmpty()) r.dni = candidate;
+            }
         }
 
         StringBuilder mrzLines = new StringBuilder();
@@ -59,17 +67,18 @@ public final class DniOcrParser {
                 mrzLines.append(compact).append('\n');
             }
         }
-        String mrz = mrzLines.toString();
-        r.mrz = mrz.trim();
+        String mrz = mrzLines.toString().trim();
+        r.mrz = mrz;
 
         if (!mrz.isEmpty()) {
             Matcher mid = Pattern.compile("IDESP(?:C)?(?:ID)?([0-9]{8}[A-Z])").matcher(mrz);
-            if (mid.find()) r.dni = mid.group(1);
-            if (r.dni.isEmpty()) {
-                Matcher anyId = Pattern.compile("(?<![0-9])([0-9]{8}[A-Z])(?![A-Z0-9])").matcher(mrz);
-                if (anyId.find()) r.dni = anyId.group(1);
+            while (mid.find()) {
+                String candidate = mid.group(1);
+                if (isValidDni(candidate)) { r.dni = candidate; break; }
+                if (r.dni.isEmpty()) r.dni = candidate;
             }
 
+            // El campo de nombres de la MRZ es APELLIDOS<<NOMBRE(S). No dependemos de etiquetas OCR.
             Matcher names = Pattern.compile("([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)*)<<([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)*)").matcher(mrz);
             if (names.find()) {
                 String s = names.group(1).replace('<',' ').trim().replaceAll("\\s+"," ");
@@ -78,10 +87,11 @@ public final class DniOcrParser {
                 if (!n.isEmpty()) r.name = n;
             }
 
-            Matcher datesMrz = Pattern.compile("(\\d{6})\\d([MF])(\\d{6})\\d").matcher(mrz.replace("<", ""));
+            // En la TD1 del DNI: nacimiento + sexo + caducidad. Se mantiene un fallback tolerante a OCR.
+            Matcher datesMrz = Pattern.compile("(\\d{6})\\d([MF<])(\\d{6})\\d").matcher(mrz.replace("<", ""));
             if (datesMrz.find()) {
                 r.birthDate = mrzDate(datesMrz.group(1));
-                r.sex = datesMrz.group(2);
+                if (!"<".equals(datesMrz.group(2))) r.sex = datesMrz.group(2);
                 r.validityDate = mrzDate(datesMrz.group(3));
             } else {
                 Matcher loose = Pattern.compile("(\\d{6})\\d?([MF])(\\d{6})").matcher(mrz.replace("<", ""));
@@ -119,10 +129,15 @@ public final class DniOcrParser {
     private static String normalizeOcr(String s) {
         return s.toUpperCase(Locale.ROOT)
                 .replace("N0MBRE", "NOMBRE")
+                .replace("N0MBRES", "NOMBRES")
                 .replace("APELLlDOS", "APELLIDOS")
+                .replace("APELLlDO", "APELLIDO")
                 .replace("NACIMlENTO", "NACIMIENTO")
+                .replace("NACIMlENT0", "NACIMIENTO")
                 .replace("VALlDEZ", "VALIDEZ")
-                .replace("EMlSION", "EMISION");
+                .replace("EMlSION", "EMISION")
+                .replace("NAC10NALIDAD", "NACIONALIDAD")
+                .replace("DOMIC1LIO", "DOMICILIO");
     }
 
     private static String labeled(String[] lines, String label) { return labeledOrNext(lines, label); }
@@ -160,6 +175,23 @@ public final class DniOcrParser {
 
     private static String clean(String s){return s==null?"":s.trim().replaceAll("\\s+"," ");}
     private static String normalizeDate(String s){return s.replace('-','/').replace('.','/');}
+
+    private static boolean isValidDni(String value) {
+        if (value == null || !value.matches("\\d{8}[A-Z]")) return false;
+        final String letters="TRWAGMYFPDXBNJZSQVHLCKE";
+        try { return letters.charAt(Integer.parseInt(value.substring(0,8)) % 23) == value.charAt(8); }
+        catch (Exception e) { return false; }
+    }
+
+    private static boolean isValidNie(String value) {
+        if (value == null || !value.matches("[XYZ]\\d{7}[A-Z]")) return false;
+        char prefix=value.charAt(0);
+        String numeric=(prefix=='X'?"0":prefix=='Y'?"1":"2")+value.substring(1,8);
+        final String letters="TRWAGMYFPDXBNJZSQVHLCKE";
+        try { return letters.charAt(Integer.parseInt(numeric) % 23) == value.charAt(8); }
+        catch (Exception e) { return false; }
+    }
+
     private static String mrzDate(String yyMMdd){
         try{int yy=Integer.parseInt(yyMMdd.substring(0,2));int year=yy<=30?2000+yy:1900+yy;return String.format(Locale.ROOT,"%02d/%02d/%04d",Integer.parseInt(yyMMdd.substring(4,6)),Integer.parseInt(yyMMdd.substring(2,4)),year);}catch(Exception e){return "";}
     }
