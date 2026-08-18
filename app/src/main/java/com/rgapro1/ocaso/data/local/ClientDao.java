@@ -11,6 +11,9 @@ public interface ClientDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void upsert(ClientEntity client);
 
+    @Query("SELECT * FROM clients WHERE identityNumber = :identity LIMIT 1")
+    ClientEntity findByIdentity(String identity);
+
     @Query("SELECT * FROM clients WHERE identityNumber = :identity OR name LIKE '%' || :query || '%' OR surname LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR email LIKE '%' || :query || '%' ORDER BY surname, name")
     List<ClientEntity> search(String query, String identity);
 
