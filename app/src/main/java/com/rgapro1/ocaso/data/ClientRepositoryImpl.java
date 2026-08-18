@@ -7,6 +7,7 @@ import com.rgapro1.ocaso.data.local.ClientDao;
 import com.rgapro1.ocaso.data.local.ClientEntity;
 import com.rgapro1.ocaso.data.local.DatabaseProvider;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +29,7 @@ public final class ClientRepositoryImpl implements AutoCloseable {
     public void search(String query, String identity, ResultCallback callback) {
         if (callback == null) return;
         final String safeQuery = query == null ? "" : query.trim();
-        final String safeIdentity = identity == null ? "" : identity.trim().toUpperCase();
+        final String safeIdentity = identity == null ? "" : identity.trim().toUpperCase(Locale.ROOT);
         io.execute(() -> {
             try {
                 List<ClientEntity> result = dao.search(safeQuery, safeIdentity);
@@ -41,7 +42,6 @@ public final class ClientRepositoryImpl implements AutoCloseable {
 
     @Override public void close() {
         io.shutdownNow();
-        main.removeCallbacksAndMessages(null);
     }
 
     public interface ResultCallback {
