@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
+import com.google.android.gms.tasks.Tasks;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
@@ -44,10 +45,7 @@ public final class PdfOcrHelper {
                                 bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                                 page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
 
-                                String text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).
-                                        continueWith(task -> task.isSuccessful() ? task.getResult().getText() : "").
-                                        getResult();
-
+                                String text = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).getText();
                                 all.append("\n--- Página ").append(i + 1).append(" ---\n");
                                 if (text != null && !text.trim().isEmpty()) {
                                     all.append(text.trim());
