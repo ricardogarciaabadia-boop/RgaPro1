@@ -1,6 +1,7 @@
 package com.rgapro1.ocaso;
 
 import android.content.SharedPreferences;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,7 +21,7 @@ public final class SecurePinPreferences implements SharedPreferences {
     }
 
     @Override public Map<String, ?> getAll() {
-        Map<String, ?> values = delegate.getAll();
+        Map<String, ?> values = new HashMap<>(delegate.getAll());
         values.remove(PIN);
         return values;
     }
