@@ -46,7 +46,7 @@ public final class SecurePinStore {
                 .putString(VALUE, value).apply();
     }
 
-    /** Migrates a legacy plaintext PIN once. The caller must then stop using the legacy key. */
+    /** Migrates a legacy plaintext PIN once and removes the legacy value. */
     public boolean migrateLegacyPin(SharedPreferences legacyPrefs, String legacyKey) {
         if (hasPin() || legacyPrefs == null || legacyKey == null) return hasPin();
         String legacyPin = legacyPrefs.getString(legacyKey, null);
@@ -60,24 +60,29 @@ public final class SecurePinStore {
         }
     }
 
-    public boolean verifyPin(String pin) {
-        if (pin == null || !pin.matches("\\d{6}")) return false;
+    /** Package-private: used only by the compatibility preferences facade for legacy UI code. */
+    String readPin() {
         try {
-            String value = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .getString(VALUE, null);
-            if (value == null) return false;
+            String value = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(VALUE, null);
+            if (value == null) return null;
             String[] parts = value.split("\\.", 2);
-            if (parts.length != 2) return false;
+            if (parts.length != 2) return null;
             byte[] iv = Base64.decode(parts[0], Base64.DEFAULT);
             byte[] encrypted = Base64.decode(parts[1], Base64.DEFAULT);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
-            byte[] plain = cipher.doFinal(encrypted);
-            byte[] candidate = pin.getBytes(StandardCharsets.UTF_8);
-            return MessageDigest.isEqual(plain, candidate);
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
         } catch (Exception ignored) {
-            return false;
+            return null;
         }
+    }
+
+    public boolean verifyPin(String pin) {
+        if (pin == null || !pin.matches("\\d{6}")) return false;
+        String stored = readPin();
+        return stored != null && MessageDigest.isEqual(
+                stored.getBytes(StandardCharsets.UTF_8),
+                pin.getBytes(StandardCharsets.UTF_8));
     }
 
     public void clear() {
