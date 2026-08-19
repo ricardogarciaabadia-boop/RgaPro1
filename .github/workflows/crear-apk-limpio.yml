@@ -48,6 +48,9 @@ jobs:
       - name: Aplicar tipos de póliza, asegurados y base cruzada
         run: python3 scripts/patch_policy_crosslink.py
 
+      - name: Mejorar lectura OCR de asegurados y relaciones cruzadas
+        run: python3 scripts/patch_policy_crosslink_v2.py
+
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
 
@@ -74,5 +77,3 @@ jobs:
           name: RgaPro-debug-limpio
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      # Build validation after Client 360 state/syntax fix.
