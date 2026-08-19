@@ -30,6 +30,9 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Aplicar UI Cliente 360
+        run: python3 scripts/patch_cliente360_ui.py
+
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
 
