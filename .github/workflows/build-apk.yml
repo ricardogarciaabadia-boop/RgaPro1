@@ -2,6 +2,7 @@ name: Crear APK
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches:
       - main
@@ -31,12 +32,19 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Compilar APK
-        run: gradle assembleDebug --stacktrace
+      - name: Compilar APK debug y release
+        run: gradle assembleDebug assembleRelease --stacktrace
 
-      - name: Guardar APK
+      - name: Guardar APK debug
         uses: actions/upload-artifact@v4
         with:
           name: RgaPro1-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Guardar APK release
+        uses: actions/upload-artifact@v4
+        with:
+          name: RgaPro1-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
