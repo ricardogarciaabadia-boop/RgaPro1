@@ -15,7 +15,7 @@ helper = '''
         logo.setAlpha(0.11f);
         logo.setClickable(false);
         logo.setFocusable(false);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(250), dp(250), Gravity.CENTER);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(450), dp(450), Gravity.CENTER);
         frame.addView(logo, lp);
         return frame;
     }
@@ -55,4 +55,4 @@ s = s.replace('setContentView(l);}', 'setContentView(withWatermark(l));}', 2)
 s = s.replace('setContentView(root);\n    }', 'setContentView(withWatermark(root));\n    }', 1)
 
 path.write_text(s, encoding='utf-8')
-print('Logo RgaPro visible en cabecera, acceso y marca de agua')
+print('Logo RgaPro visible en cabecera, acceso y marca de agua; marca de agua ampliada a 450dp')
