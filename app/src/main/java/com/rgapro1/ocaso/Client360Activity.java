@@ -28,6 +28,7 @@ public class Client360Activity extends FragmentActivity {
     }
 
     private void render(){show();}
+    private void show(JSONObject p){client=p==null?new JSONObject():p;show();}
 
     private void show(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);
@@ -53,12 +54,7 @@ public class Client360Activity extends FragmentActivity {
         if(docs!=null){for(int i=0;i<docs.length();i++){String path=documentPath(docs.opt(i));if(path.isEmpty())continue;Button d=btn("📄 "+new File(path).getName());d.setOnClickListener(v->documentMenu(path));body.addView(d,new LinearLayout.LayoutParams(-1,dp(58)));}}
     }
 
-    private String documentPath(Object item){
-        if(item==null||item==JSONObject.NULL)return "";
-        if(item instanceof JSONObject)return ((JSONObject)item).optString("path","");
-        return String.valueOf(item);
-    }
-
+    private String documentPath(Object item){if(item==null||item==JSONObject.NULL)return "";if(item instanceof JSONObject)return ((JSONObject)item).optString("path","");return String.valueOf(item);}
     private void showProduct(JSONObject p){new AlertDialog.Builder(this).setTitle("Producto / póliza").setMessage("Tipo: "+p.optString("type","—")+"\nNúmero: "+p.optString("number","—")+"\nTitular: "+p.optString("holder","—")+"\nVencimiento: "+p.optString("expiry",p.optString("validityDate","—"))).setPositiveButton("Cerrar",null).show();}
 
     private void editClient(){
@@ -69,7 +65,8 @@ public class Client360Activity extends FragmentActivity {
         dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{put(client,"holder",holder.getText().toString());put(client,"name",name.getText().toString());put(client,"surname",surname.getText().toString());put(client,"identityNumber",identity.getText().toString());put(client,"holderDni",identity.getText().toString());put(client,"cif",cif.getText().toString());put(client,"phone",phone.getText().toString());put(client,"email",email.getText().toString());put(client,"address",address.getText().toString());put(client,"birthDate",birth.getText().toString());put(client,"type",type.getText().toString());put(client,"number",number.getText().toString());put(client,"expiry",expiry.getText().toString());put(client,"validityDate",expiry.getText().toString());put(client,"nationality",nationality.getText().toString());put(client,"sex",sex.getText().toString());put(client,"birthPlace",birthPlace.getText().toString());client.put("updatedAt",System.currentTimeMillis());if(saveClient(client)){dialog.dismiss();show();Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();}});dialog.show();
     }
     private void put(JSONObject o,String k,String v)throws Exception{String x=v==null?"":v.trim();if(x.isEmpty())o.remove(k);else o.put(k,x);}
-    private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}catch(Exception e){return false;}}
+    private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}
+    catch(Exception e){return false;}}
     private int same(JSONObject a,String key,String value,int weight){if(value==null||value.trim().isEmpty())return 0;String av=a.optString(key,"").trim();return av.equalsIgnoreCase(value.trim())?weight:0;}
 
     private void documentMenu(String path){new AlertDialog.Builder(this).setTitle("Documento").setItems(new String[]{"👁️ Abrir / ver","⬇️ Descargar","📤 Compartir"},(d,w)->{if(w==0)open(path);else if(w==1)download(path);else share(path);}).show();}
