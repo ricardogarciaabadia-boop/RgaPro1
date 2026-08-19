@@ -29,7 +29,6 @@ if 'Button users=sideButton("👥  Usuarios de la aplicación")' not in s:
             s = s[:m.start(1)] + indent + line + '\n' + m.group(1) + s[m.end(1):]
             break
     if not m:
-        # Último recurso: localizar home() por balanceo de llaves.
         home_match = re.search(r'\bvoid\s+home\s*\(\s*\)\s*\{', s)
         if not home_match:
             raise SystemExit('home method not found')
@@ -82,6 +81,10 @@ if 'private void users(){' not in s:
 '''
     if marker in s:
         s=s.replace(marker,users+marker,1)
+
+# Corregir escapes de Java que algunos parches previos pudieron duplicar.
+# Java debe recibir '\\r' y '\\n' dentro de literales char, no '\\\\r'/'\\\\n'.
+s = s.replace(r"raw.replace('\\r','\\n')", r"raw.replace('\r','\n')")
 
 MAIN.write_text(s,encoding='utf-8')
 print('Robust DNI/user-management patch applied')
