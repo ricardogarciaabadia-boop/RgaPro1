@@ -10,8 +10,6 @@ s = MAIN.read_text(encoding="utf-8")
 # itself handles visibility when its local fields exist.
 # ---------------------------------------------------------------------------
 s = re.sub(r'(?m)^\s*if\(dniMode\)\{[^\n]*\}\s*$', '', s)
-
-# Remove any old generated visibility block even if it is not on a line alone.
 s = re.sub(r'if\(dniMode\)\{[^{}\n]*\}', '', s)
 
 # ---------------------------------------------------------------------------
@@ -19,6 +17,10 @@ s = re.sub(r'if\(dniMode\)\{[^{}\n]*\}', '', s)
 # ---------------------------------------------------------------------------
 s = s.replace("replace('\\\\r','\\\\n')", "replace('\\r','\\n')")
 s = s.replace('replace("\\\\r","\\\\n")', 'replace("\\r","\\n")')
+
+# Fix a duplicated else that can be produced by the OCR/session patch.
+s = s.replace('}else else askMorePages();', '}else askMorePages();')
+s = s.replace('} else else askMorePages();', '} else askMorePages();')
 
 # ---------------------------------------------------------------------------
 # Users menu/helpers. Insert only when absent, and anchor on the real home
@@ -60,7 +62,7 @@ if 'private void users(){' not in s:
 
 '''
     marker='    private void security(){'
-    if marker in s: s=s.replace(marker,users+marker,1)
+    if marker in s:s=s.replace(marker,users+marker,1)
 
 # ---------------------------------------------------------------------------
 # Compatibility overload: current saveClient has 17 EditTexts + 5 Strings,
@@ -70,7 +72,9 @@ if 'private void users(){' not in s:
 if 'private void saveClient(EditText a1,EditText a2,EditText a3,EditText a4,EditText a5,EditText a6,EditText a7,EditText a8,EditText a9,EditText a10,EditText a11,EditText a12,EditText a13,EditText a14,EditText a15,EditText a16,EditText a17,String s1,String s2,String s3)' not in s:
     marker = re.search(r'(?m)^\s*private void saveClient\s*\(', s)
     if marker:
-        overload = '''    private void saveClient(EditText a1,EditText a2,EditText a3,EditText a4,EditText a5,EditText a6,EditText a7,EditText a8,EditText a9,EditText a10,EditText a11,EditText a12,EditText a13,EditText a14,EditText a15,EditText a16,EditText a17,String s1,String s2,String s3){saveClient(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,s1,s2,s3,"","");}\n\n'''
+        overload = '''    private void saveClient(EditText a1,EditText a2,EditText a3,EditText a4,EditText a5,EditText a6,EditText a7,EditText a8,EditText a9,EditText a10,EditText a11,EditText a12,EditText a13,EditText a14,EditText a15,EditText a16,EditText a17,String s1,String s2,String s3){saveClient(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,s1,s2,s3,"","");}
+
+'''
         s = s[:marker.start()] + overload + s[marker.start():]
 
 MAIN.write_text(s, encoding="utf-8")
