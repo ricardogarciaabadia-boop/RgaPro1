@@ -3,7 +3,7 @@ name: Crear APK limpio
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, 'fix/**', 'feature/**' ]
 
 permissions:
   contents: read
@@ -42,6 +42,9 @@ jobs:
       - name: Aplicar buscador global de clientes
         run: python3 scripts/patch_cliente_search.py
 
+      - name: Aplicar usuarios y compartición cifrada
+        run: python3 scripts/patch_secure_users_sharing.py
+
       - name: Aplicar bloqueo seguro de sesión al salir
         run: python3 scripts/patch_session_lock.py
 
@@ -68,5 +71,3 @@ jobs:
           name: RgaPro-debug-limpio
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      # Build validation after Client 360 state/syntax fix.
