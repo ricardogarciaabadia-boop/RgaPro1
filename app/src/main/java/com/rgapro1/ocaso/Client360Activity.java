@@ -27,6 +27,8 @@ public class Client360Activity extends FragmentActivity {
         catch(Exception e){Toast.makeText(this,"No se pudo abrir el cliente",Toast.LENGTH_LONG).show();finish();}
     }
 
+    private void render(){show();}
+
     private void show(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);
         LinearLayout head=new LinearLayout(this);head.setOrientation(LinearLayout.VERTICAL);head.setPadding(dp(10),dp(8),dp(10),dp(8));head.setBackgroundColor(NAVY);
@@ -61,64 +63,20 @@ public class Client360Activity extends FragmentActivity {
 
     private void editClient(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(8),0,dp(8),0);
-        EditText holder=field("Titular",client.optString("holder",""));
-        EditText name=field("Nombre",client.optString("name",""));
-        EditText surname=field("Apellidos",client.optString("surname",""));
-        EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));
-        EditText cif=field("CIF",client.optString("cif",""));
-        EditText phone=field("Teléfono",client.optString("phone",""));
-        EditText email=field("Correo electrónico",client.optString("email",""));
-        EditText address=field("Dirección",client.optString("address",""));
-        EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));
-        EditText type=field("Tipo",client.optString("type",""));
-        EditText number=field("Número de póliza / documento",client.optString("number",""));
-        EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));
-        EditText nationality=field("Nacionalidad",client.optString("nationality",""));
-        EditText sex=field("Sexo",client.optString("sex",""));
-        EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
+        EditText holder=field("Titular",client.optString("holder",""));EditText name=field("Nombre",client.optString("name",""));EditText surname=field("Apellidos",client.optString("surname",""));EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));EditText cif=field("CIF",client.optString("cif",""));EditText phone=field("Teléfono",client.optString("phone",""));EditText email=field("Correo electrónico",client.optString("email",""));EditText address=field("Dirección",client.optString("address",""));EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));EditText type=field("Tipo",client.optString("type",""));EditText number=field("Número de póliza / documento",client.optString("number",""));EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));EditText nationality=field("Nacionalidad",client.optString("nationality",""));EditText sex=field("Sexo",client.optString("sex",""));EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
         for(EditText e:new EditText[]{holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace})form.addView(e,new LinearLayout.LayoutParams(-1,dp(54)));
-        ScrollView scroll=new ScrollView(this);scroll.addView(form);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Editar cliente").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();
-        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            try{
-                put(client,"holder",holder.getText().toString());put(client,"name",name.getText().toString());put(client,"surname",surname.getText().toString());put(client,"identityNumber",identity.getText().toString());put(client,"holderDni",identity.getText().toString());put(client,"cif",cif.getText().toString());put(client,"phone",phone.getText().toString());put(client,"email",email.getText().toString());put(client,"address",address.getText().toString());put(client,"birthDate",birth.getText().toString());put(client,"type",type.getText().toString());put(client,"number",number.getText().toString());put(client,"expiry",expiry.getText().toString());put(client,"validityDate",expiry.getText().toString());put(client,"nationality",nationality.getText().toString());put(client,"sex",sex.getText().toString());put(client,"birthPlace",birthPlace.getText().toString());client.put("updatedAt",System.currentTimeMillis());
-                if(saveClient(client)){dialog.dismiss();show();Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();}
-                else Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();
-            }catch(Exception e){Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();}
-        });dialog.show();
+        ScrollView scroll=new ScrollView(this);scroll.addView(form);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Editar cliente").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();
+        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{put(client,"holder",holder.getText().toString());put(client,"name",name.getText().toString());put(client,"surname",surname.getText().toString());put(client,"identityNumber",identity.getText().toString());put(client,"holderDni",identity.getText().toString());put(client,"cif",cif.getText().toString());put(client,"phone",phone.getText().toString());put(client,"email",email.getText().toString());put(client,"address",address.getText().toString());put(client,"birthDate",birth.getText().toString());put(client,"type",type.getText().toString());put(client,"number",number.getText().toString());put(client,"expiry",expiry.getText().toString());put(client,"validityDate",expiry.getText().toString());put(client,"nationality",nationality.getText().toString());put(client,"sex",sex.getText().toString());put(client,"birthPlace",birthPlace.getText().toString());client.put("updatedAt",System.currentTimeMillis());if(saveClient(client)){dialog.dismiss();show();Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();}});dialog.show();
     }
-
     private void put(JSONObject o,String k,String v)throws Exception{String x=v==null?"":v.trim();if(x.isEmpty())o.remove(k);else o.put(k,x);}
-
-    private boolean saveClient(JSONObject edited){
-        try{
-            android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;
-            for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}
-            if(best<0){return false;}a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;
-        }catch(Exception e){return false;}
-    }
-
+    private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}catch(Exception e){return false;}}
     private int same(JSONObject a,String key,String value,int weight){if(value==null||value.trim().isEmpty())return 0;String av=a.optString(key,"").trim();return av.equalsIgnoreCase(value.trim())?weight:0;}
 
     private void documentMenu(String path){new AlertDialog.Builder(this).setTitle("Documento").setItems(new String[]{"👁️ Abrir / ver","⬇️ Descargar","📤 Compartir"},(d,w)->{if(w==0)open(path);else if(w==1)download(path);else share(path);}).show();}
-
-    private Uri uri(String path){
-        File f=new File(path);if(!f.exists())return null;
-        try{return FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);}
-        catch(Exception e){return null;}
-    }
-
+    private Uri uri(String path){File f=new File(path);if(!f.exists())return null;try{return FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);}catch(Exception e){return null;}}
     private void open(String path){Uri u=uri(path);if(u==null){toast("No se puede acceder al archivo para compartirlo");return;}Intent i=new Intent(Intent.ACTION_VIEW);i.setDataAndType(u,mime(path));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);i.setClipData(ClipData.newRawUri("Documento",u));try{startActivity(i);}catch(Exception e){toast("No hay una aplicación compatible para abrir este documento");}}
-
-    private void share(String path){
-        Uri u=uri(path);if(u==null){toast("No se puede compartir este archivo desde su ubicación actual");return;}
-        Intent i=new Intent(Intent.ACTION_SEND);i.setType(mime(path));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);i.setClipData(ClipData.newRawUri("Documento",u));
-        try{startActivity(Intent.createChooser(i,"Compartir documento"));}
-        catch(Exception e){toast("No hay aplicaciones disponibles para compartir este archivo");}
-    }
-
+    private void share(String path){Uri u=uri(path);if(u==null){toast("No se puede compartir este archivo desde su ubicación actual");return;}Intent i=new Intent(Intent.ACTION_SEND);i.setType(mime(path));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);i.setClipData(ClipData.newRawUri("Documento",u));try{startActivity(Intent.createChooser(i,"Compartir documento"));}catch(Exception e){toast("No hay aplicaciones disponibles para compartir este archivo");}}
     private void download(String path){File src=new File(path);if(!src.exists()){toast("No se encuentra el documento");return;}try{if(Build.VERSION.SDK_INT>=29){ContentValues v=new ContentValues();v.put(MediaStore.Downloads.DISPLAY_NAME,src.getName());v.put(MediaStore.Downloads.MIME_TYPE,mime(path));v.put(MediaStore.Downloads.IS_PENDING,1);Uri u=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v);if(u==null)throw new IOException("No se pudo crear la descarga");try(InputStream in=new FileInputStream(src);OutputStream out=getContentResolver().openOutputStream(u)){byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);}v.clear();v.put(MediaStore.Downloads.IS_PENDING,0);getContentResolver().update(u,v,null,null);}else{File d=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);if(!d.exists())d.mkdirs();try(InputStream in=new FileInputStream(src);OutputStream out=new FileOutputStream(new File(d,src.getName()))){byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);}}toast("Documento descargado");}catch(Exception e){toast("No se pudo descargar: "+e.getMessage());}}
-
     private String mime(String p){String x=p.toLowerCase();if(x.endsWith(".pdf"))return "application/pdf";if(x.endsWith(".png"))return "image/png";if(x.endsWith(".webp"))return "image/webp";return "image/jpeg";}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
 }
