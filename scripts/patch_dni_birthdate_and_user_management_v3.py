@@ -4,10 +4,11 @@ import re
 MAIN = Path("app/src/main/java/com/rgapro1/ocaso/MainActivity.java")
 s = MAIN.read_text(encoding="utf-8")
 
-# DNI: conservar siempre la fecha de nacimiento.
+# DNI: conservar siempre la fecha de nacimiento. No referenciar cif: ese campo
+# puede no existir en MainActivity después de los parches previos.
 s = s.replace(
-    'if(dniMode){cif.setVisibility(View.GONE);birth.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);}',
-    'if(dniMode){cif.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);birth.setVisibility(View.VISIBLE);birth.setHint("Fecha de nacimiento (IMPORTANTE)");}'
+    'if(dniMode){cif.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);birth.setVisibility(View.VISIBLE);birth.setHint("Fecha de nacimiento (IMPORTANTE)");}',
+    'if(dniMode){nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);birth.setVisibility(View.VISIBLE);birth.setHint("Fecha de nacimiento (IMPORTANTE)");}'
 )
 s = s.replace(
     'String[] remove={"birthDate","nationality","sex","birthPlace","parents","supportNumber","issueDate","validityDate","expiry","cif","products","insureds","product","ahorroModalidad"};',
@@ -47,7 +48,6 @@ if 'Button users=sideButton("👥  Usuarios de la aplicación")' not in s:
             raise SystemExit('home method closing brace not found')
         s = s[:close] + '\n' + line + '\n' + s[close:]
 
-# Crear/normalizar almacén de usuarios.
 if 'private JSONArray appUsers()' not in s:
     helper = '''    private JSONArray appUsers(){
         try{String raw=prefs.getString("appUsers","");if(!raw.isEmpty())return new JSONArray(raw);JSONArray a=new JSONArray();String u=prefs.getString("user","");String p=prefs.getString("pin","");if(!u.isEmpty())a.put(new JSONObject().put("name",u).put("pin",p).put("active",true).put("role","ADMIN"));prefs.edit().putString("appUsers",a.toString()).apply();return a;}catch(Exception e){return new JSONArray();}
@@ -58,7 +58,6 @@ if 'private JSONArray appUsers()' not in s:
     if marker in s:
         s=s.replace(marker,helper+marker,1)
 
-# Sustituir login sin depender de formato/indentación.
 start=s.find('private void login(){')
 if start>=0:
     next_methods=['private void biometricLogin(){','private void home(){','void biometricLogin(){','void home(){']
@@ -71,20 +70,19 @@ if start>=0:
     '''
         s=s[:start]+login+s[end:]
 
-# Gestión de usuarios.
 if 'private void users(){' not in s:
     marker='    private void security(){'
     users='''    private void users(){page("Usuarios de la aplicación","Gestiona el acceso local a RgaPro");Button add=action("＋ Añadir usuario",true);content.addView(add,new LinearLayout.LayoutParams(-1,dp(56)));LinearLayout list=col();content.addView(list);Runnable refresh=()->{list.removeAllViews();JSONArray a=appUsers();for(int i=0;i<a.length();i++){final int idx=i;JSONObject q=a.optJSONObject(i);if(q==null)continue;String n=q.optString("name","Sin nombre");boolean active=q.optBoolean("active",true);Button b=action((active?"🟢 ":"⚪ ")+n+(active?" · Activo":" · Desactivado"),false);b.setOnClickListener(v->editAppUser(idx,refresh));list.addView(b,new LinearLayout.LayoutParams(-1,dp(58)));}};add.setOnClickListener(v->addAppUser(refresh));refresh.run();}
-    private void addAppUser(Runnable refresh){LinearLayout l=col();EditText n=edit("Nombre de usuario"),p=edit("Clave de 6 dígitos");p.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);l.addView(n);l.addView(p);AlertDialog d=new AlertDialog.Builder(this).setTitle("Añadir usuario").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();d.setOnShowListener(x->d.getButton(-1).setOnClickListener(v->{String name=n.getText().toString().trim(),pin=p.getText().toString();if(name.isEmpty()||!pin.matches("\\\\d{6}")){p.setError("Clave de 6 dígitos obligatoria");return;}try{JSONArray a=appUsers();a.put(new JSONObject().put("name",name).put("pin",pin).put("active",true).put("role","USUARIO"));saveAppUsers(a);d.dismiss();refresh.run();}catch(Exception e){p.setError("No se pudo guardar");}}));d.show();}
+    private void addAppUser(Runnable refresh){LinearLayout l=col();EditText n=edit("Nombre de usuario"),p=edit("Clave de 6 dígitos");p.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);l.addView(n);l.addView(p);AlertDialog d=new AlertDialog.Builder(this).setTitle("Añadir usuario").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();d.setOnShowListener(x->d.getButton(-1).setOnClickListener(v->{String name=n.getText().toString().trim(),pin=p.getText().toString();if(name.isEmpty()||!pin.matches("\\d{6}")){p.setError("Clave de 6 dígitos obligatoria");return;}try{JSONArray a=appUsers();a.put(new JSONObject().put("name",name).put("pin",pin).put("active",true).put("role","USUARIO"));saveAppUsers(a);d.dismiss();refresh.run();}catch(Exception e){p.setError("No se pudo guardar");}}));d.show();}
     private void editAppUser(int idx,Runnable refresh){JSONArray a=appUsers();JSONObject q=a.optJSONObject(idx);if(q==null)return;LinearLayout l=col();EditText n=edit("Nombre");n.setText(q.optString("name",""));EditText p=edit("Nueva clave (opcional)");p.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);l.addView(n);l.addView(p);AlertDialog d=new AlertDialog.Builder(this).setTitle("Editar usuario").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();d.setOnShowListener(x->d.getButton(-1).setOnClickListener(v->{try{q.put("name",n.getText().toString().trim());if(!p.getText().toString().isEmpty())q.put("pin",p.getText().toString());a.put(idx,q);saveAppUsers(a);d.dismiss();refresh.run();}catch(Exception e){n.setError("No se pudo guardar");}}));d.show();}
 
 '''
     if marker in s:
         s=s.replace(marker,users+marker,1)
 
-# Corregir escapes de Java que algunos parches previos pudieron duplicar.
-# Java debe recibir '\\r' y '\\n' dentro de literales char, no '\\\\r'/'\\\\n'.
-s = s.replace(r"raw.replace('\\r','\\n')", r"raw.replace('\r','\n')")
+# Evitar escapes Java inválidos que puedan quedar introducidos por parches previos.
+s=s.replace("replace('\\\\r','\\\\n')", "replace('\\r','\\n')")
+s=s.replace('replace("\\\\r","\\\\n")', 'replace("\\r","\\n")')
 
 MAIN.write_text(s,encoding='utf-8')
 print('Robust DNI/user-management patch applied')
