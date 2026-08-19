@@ -60,4 +60,4 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      # Build trigger: include latest OCR/client-linking changes.
+      # Build validation after Client 360 state/syntax fix.
