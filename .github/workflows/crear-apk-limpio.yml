@@ -42,6 +42,8 @@ jobs:
         run: python3 scripts/patch_policy_crosslink_v2.py
       - name: Separar DNI de pólizas y clasificar documentos OCR
         run: python3 scripts/patch_ocr_document_classifier.py
+      - name: Blindar clasificación estricta de documentos
+        run: python3 scripts/patch_document_classifier_strict_v2.py
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
       - name: Aplicar OCR avanzado de decesos, capitales y enlaces cruzados
