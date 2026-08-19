@@ -6,10 +6,10 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.view.ViewGroup;
 
 /**
  * Production launcher that keeps the legacy MainActivity UI intact while routing
@@ -58,7 +58,7 @@ public class SecureMainActivity extends MainActivity {
             brand.setBackgroundColor(Color.rgb(7, 26, 58));
 
             ImageView logo = new ImageView(this);
-            logo.setImageResource(com.rgapro.app.R.drawable.ic_rgapro);
+            logo.setImageResource(R.drawable.ic_rgapro);
             logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             brand.addView(logo, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
