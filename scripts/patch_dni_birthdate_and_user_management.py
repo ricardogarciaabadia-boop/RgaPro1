@@ -4,30 +4,34 @@ import re
 MAIN = Path("app/src/main/java/com/rgapro1/ocaso/MainActivity.java")
 s = MAIN.read_text(encoding="utf-8")
 
-# DNI: conservar fecha de nacimiento como dato importante.
+# DNI: la fecha de nacimiento es un dato obligatorio/importante del OCR de DNI.
+# No dependemos de una cadena exacta del parche anterior: ocultamos solo los campos
+# que no corresponden al DNI y conservamos birth.
 s = s.replace(
     'if(dniMode){cif.setVisibility(View.GONE);birth.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);}',
-    'if(dniMode){cif.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);birth.setHint("Fecha de nacimiento (IMPORTANTE)");}'
+    'if(dniMode){cif.setVisibility(View.GONE);nationality.setVisibility(View.GONE);sex.setVisibility(View.GONE);birthPlace.setVisibility(View.GONE);parents.setVisibility(View.GONE);support.setVisibility(View.GONE);issue.setVisibility(View.GONE);validity.setVisibility(View.GONE);birth.setVisibility(View.VISIBLE);birth.setHint("Fecha de nacimiento (IMPORTANTE)");}'
 )
 s = s.replace(
     'String[] remove={"birthDate","nationality","sex","birthPlace","parents","supportNumber","issueDate","validityDate","expiry","cif","products","insureds","product","ahorroModalidad"};',
     'String[] remove={"nationality","sex","birthPlace","parents","supportNumber","issueDate","validityDate","expiry","cif","products","insureds","product","ahorroModalidad"};'
 )
 
-# Menú visible de usuarios: tolera cambios de icono/texto y usa la línea real de Seguridad como ancla.
+# Menú visible de usuarios. La versión actual de home() tiene Seguridad después de
+# "Futuras bajas"; el parche anterior esperaba otra estructura y abortaba el build.
 if 'Button users=sideButton("👥  Usuarios de la aplicación")' not in s:
-    anchor_re = r'(?m)^\s*Button security=sideButton\([^\n]+\); security\.setOnClickListener\(v->security\(\)\); side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);'
+    anchor_re = r'(?m)^(\s*Button security=sideButton\("🔒  Seguridad"\); security\.setOnClickListener\(v->security\(\)\); side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);)'
     m = re.search(anchor_re, s)
     if not m:
-        # Fallback: localizar la creación del botón Seguridad y conservar exactamente el estilo existente.
-        anchor_re = r'(?m)^\s*Button security=.*?side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);'
+        # Fallback más tolerante: localizar cualquier declaración del botón Seguridad
+        # y su addView inmediato, sin exigir el icono exacto.
+        anchor_re = r'(?m)^(\s*Button security=.*?side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);)'
         m = re.search(anchor_re, s)
     if not m:
         raise SystemExit("home security menu anchor not found")
-    anchor = m.group(0)
+    anchor = m.group(1)
     indent = re.match(r'^\s*', anchor).group(0)
     insert = anchor + '\n' + indent + 'Button users=sideButton("👥  Usuarios de la aplicación"); users.setOnClickListener(v->users()); side.addView(users,new LinearLayout.LayoutParams(-1,dp(68)));'
-    s = s[:m.start()] + insert + s[m.end():]
+    s = s[:m.start(1)] + insert + s[m.end(1):]
 
 # Primera cuenta -> almacén local de usuarios.
 old_create = 'prefs.edit().putString("user",u.getText().toString().trim()).putString("pin",p.getText().toString()).putBoolean("biometric",true).apply();currentUser=u.getText().toString().trim();home();'
@@ -36,7 +40,7 @@ if old_create in s:
     s = s.replace(old_create, new_create, 1)
 
 # Login multiusuario.
-if 'private void login(){EditText e=edit("Clave de 6 dígitos");' in s and 'private JSONArray appUsers()' not in s:
+if 'private JSONArray appUsers()' not in s:
     old = re.search(r'    private void login\(\)\{.*?\n    \}\n    private void biometricLogin\(\)', s, re.S)
     if not old:
         raise SystemExit("login method block not found")
