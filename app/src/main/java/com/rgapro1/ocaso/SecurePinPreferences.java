@@ -17,13 +17,6 @@ public final class SecurePinPreferences implements SharedPreferences {
     private final SecurePinStore securePin;
     private final SecureDataStore secureData;
 
-    public SecurePinPreferences(SharedPreferences delegate, SecurePinStore securePin) {
-        this.delegate = delegate;
-        this.securePin = securePin;
-        this.secureData = new SecureDataStore(delegate instanceof android.content.Context
-                ? (android.content.Context) delegate : null);
-    }
-
     public SecurePinPreferences(SharedPreferences delegate, SecurePinStore securePin, SecureDataStore secureData) {
         this.delegate = delegate;
         this.securePin = securePin;
