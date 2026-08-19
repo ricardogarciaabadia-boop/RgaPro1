@@ -14,6 +14,14 @@ android {
         versionName '1.6'
     }
 
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
     packagingOptions {
         jniLibs {
             keepDebugSymbols += ['**/libmlkit_google_ocr_pipeline.so']
