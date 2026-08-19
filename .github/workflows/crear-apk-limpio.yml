@@ -15,83 +15,61 @@ jobs:
     steps:
       - name: Descargar código
         uses: actions/checkout@v6
-
       - name: Configurar Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
-
       - name: Instalar Gradle 8.7
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.7'
-
       - name: Aplicar UI Cliente 360
         run: python3 scripts/patch_cliente360_ui.py
-
       - name: Aplicar mejoras finales de clientes y documentos
         run: python3 scripts/patch_cliente_final.py
-
       - name: Aplicar OCR DNI y editor completo de pólizas
         run: python3 scripts/patch_dni_policy_features.py
-
       - name: Aplicar buscador global de clientes
         run: python3 scripts/patch_cliente_search.py
-
       - name: Aplicar bloqueo seguro de sesión al salir
         run: python3 scripts/patch_session_lock.py
-
       - name: Aplicar tipos de póliza, asegurados y base cruzada
         run: python3 scripts/patch_policy_crosslink.py
-
       - name: Mejorar lectura OCR de asegurados y relaciones cruzadas
         run: python3 scripts/patch_policy_crosslink_v2.py
-
       - name: Separar DNI de pólizas y clasificar documentos OCR
         run: python3 scripts/patch_ocr_document_classifier.py
-
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
-
       - name: Aplicar OCR avanzado de decesos, capitales y enlaces cruzados
         run: python3 scripts/patch_policy_advanced.py
-
       - name: Detectar asegurados de decesos sin DNI visible
         run: python3 scripts/patch_policy_deceso_noid.py
-
       - name: Corregir formato del resumen avanzado de pólizas
         run: python3 scripts/patch_policy_advanced_fix.py
-
       - name: Vincular capitales detectados a cada asegurado
         run: python3 scripts/patch_policy_capital_link.py
-
       - name: Mostrar logotipo RgaPro como fondo de seguridad
         run: python3 scripts/patch_logo_watermark.py
-
       - name: Restaurar fecha de nacimiento del DNI y gestión de usuarios
         run: python3 scripts/patch_dni_birthdate_and_user_management.py
-
+      - name: Blindar inicialización de usuarios
+        run: python3 scripts/patch_user_compile_safety.py
       - name: Corregir imports de compilación Cliente 360
         run: python3 scripts/fix_cliente360_compile.py
-
       - name: Corregir estado de Cliente 360
         run: python3 scripts/fix_cliente360_state.py
-
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
-
       - name: Compilar APK Debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
-
       - name: Verificar APK generado
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
-
       - name: Guardar APK
         uses: actions/upload-artifact@v7
         with:
