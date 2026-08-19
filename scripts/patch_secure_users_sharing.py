@@ -3,17 +3,14 @@ from pathlib import Path
 p=Path('app/src/main/java/com/rgapro1/ocaso/MainActivity.java')
 s=p.read_text(encoding='utf-8')
 
-# Ensure every local installation has a public/private identity for secure sharing.
 needle='prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);if(!prefs.contains("user"))createUser();else showLogin();'
 repl='prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);try{if(prefs.contains("user"))SecureShareManager.ensureIdentity(this,prefs.getString("user",""));}catch(Exception ignored){}if(!prefs.contains("user"))createUser();else showLogin();'
 if needle in s:s=s.replace(needle,repl,1)
 
-# Add security-management shortcuts beside the existing security button.
 needle='Button security=sideButton("🔒  Seguridad"); security.setOnClickListener(v->security()); side.addView(security,new LinearLayout.LayoutParams(-1,dp(60)));'
 repl=needle+'\n        Button users=sideButton("👥  Usuarios autorizados"); users.setOnClickListener(v->authorizedUsers()); side.addView(users,new LinearLayout.LayoutParams(-1,dp(60)));\n        Button imports=sideButton("📥  Importar compartido"); imports.setOnClickListener(v->importSecureShare()); side.addView(imports,new LinearLayout.LayoutParams(-1,dp(60)));'
 if needle in s and 'authorizedUsers();' not in s:s=s.replace(needle,repl,1)
 
-# Inject methods before final class closing brace.
 if 'private void authorizedUsers()' not in s:
     methods=r'''
     private JSONArray authorizedUsersData(){try{return new JSONArray(prefs.getString("authorized_users","[]"));}catch(Exception e){return new JSONArray();}}
@@ -44,38 +41,13 @@ if 'private void authorizedUsers()' not in s:
 '''
     marker='    private void security(){'
     idx=s.find(marker)
-    if idx>=0:
-        close=s.find('\n    }',idx)
-        if close>=0:
-            sec='''\n        Button register=action("📱  Registrar este dispositivo con el administrador",true);content.addView(register,new LinearLayout.LayoutParams(-1,dp(58)));register.setOnClickListener(v->registerSecureDevice());\n        Button users=action("👥  Usuarios autorizados",false);content.addView(users,new LinearLayout.LayoutParams(-1,dp(58)));users.setOnClickListener(v->authorizedUsers());\n'''
-            s=s[:close]+sec+s[close:]
+    if idx<0: raise SystemExit('security method not found')
+    close=s.find('\n    }',idx)
+    if close<0: raise SystemExit('security method close not found')
+    sec='''\n        Button register=action("📱  Registrar este dispositivo con el administrador",true);content.addView(register,new LinearLayout.LayoutParams(-1,dp(58)));register.setOnClickListener(v->registerSecureDevice());\n        Button users=action("👥  Usuarios autorizados",false);content.addView(users,new LinearLayout.LayoutParams(-1,dp(58)));users.setOnClickListener(v->authorizedUsers());\n'''
+    s=s[:close]+sec+s[close:]
     pos=s.rfind('\n}')
     s=s[:pos]+methods+s[pos:]
 
-# Add a share button to client detail without depending on exact existing UI layout.
-if 'shareSecureClient(p);' not in s:
-    marker='private void detail(JSONObject p)'
-    idx=s.find(marker)
-    if idx>=0:
-        openb=s.find('{',idx)
-        if openb>=0:s=s[:openb+1]+'\n        Button secureShare=action("🔐  Compartir cliente con usuario autorizado",true);secureShare.setOnClickListener(v->shareSecureClient(p));content.addView(secureShare,new LinearLayout.LayoutParams(-1,dp(58)));'+s[openb+1:]
-
-# Session security: lock whenever the screen is turned off, Home is pressed, or Back exits the app.
-if 'private BroadcastReceiver securityLockReceiver;' not in s:
-    s=s.replace('import android.content.Intent;','import android.content.Intent;\nimport android.content.BroadcastReceiver;\nimport android.content.Context;\nimport android.content.IntentFilter;',1)
-    s=s.replace('private final Executor biometricExecutor=Executors.newSingleThreadExecutor();','private final Executor biometricExecutor=Executors.newSingleThreadExecutor();\n    private BroadcastReceiver securityLockReceiver;\n    private boolean securitySessionActive=false;',1)
-    s=s.replace('@Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(NAVY);prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);','@Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(NAVY);prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);securityLockReceiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){if(Intent.ACTION_SCREEN_OFF.equals(i.getAction()))lockForSecurity();}};registerReceiver(securityLockReceiver,new IntentFilter(Intent.ACTION_SCREEN_OFF));',1)
-    s=s.replace('currentUser=u.getText().toString().trim();home();','currentUser=u.getText().toString().trim();securitySessionActive=true;home();',1)
-    s=s.replace('currentUser=prefs.getString("user","");home();','currentUser=prefs.getString("user","");securitySessionActive=true;home();',1)
-    methods2=r'''
-    private void lockForSecurity(){securitySessionActive=false;currentUser=null;showLogin();}
-    @Override public void onUserLeaveHint(){super.onUserLeaveHint();if(securitySessionActive)lockForSecurity();}
-    @Override public void onBackPressed(){if(securitySessionActive)lockForSecurity();else super.onBackPressed();}
-    @Override protected void onDestroy(){try{if(securityLockReceiver!=null)unregisterReceiver(securityLockReceiver);}catch(Exception ignored){}super.onDestroy();}
-'''
-    pos=s.rfind('\n}')
-    s=s[:pos]+methods2+s[pos:]
-s=s.replace('Button logout=sideButton("Salir"); logout.setOnClickListener(v->showLogin());','Button logout=sideButton("Salir"); logout.setOnClickListener(v->lockForSecurity());',1)
-
 p.write_text(s,encoding='utf-8')
-print('secure users/sharing/session lock patch prepared')
+print('secure users/sharing patch prepared')
