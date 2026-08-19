@@ -7,7 +7,6 @@ import androidx.room.PrimaryKey;
 public class PolicyEntity {
     @PrimaryKey(autoGenerate = true)
     public long id;
-
     public String policyNumber;
     public String company;
     public String holder;
