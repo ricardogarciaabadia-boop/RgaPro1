@@ -4,7 +4,6 @@ import re
 p=Path('app/src/main/java/com/rgapro1/ocaso/MainActivity.java')
 s=p.read_text(encoding='utf-8')
 
-# Nombre/apellidos como dato principal en Clientes.
 if 'private String displayClientName(JSONObject p)' not in s:
     marker='    private boolean match(JSONObject p,String q)'
     helper='''    private String displayClientName(JSONObject p){
@@ -22,7 +21,6 @@ if 'private String displayClientName(JSONObject p)' not in s:
     if marker not in s: raise SystemExit('marker match not found')
     s=s.replace(marker,helper+marker,1)
 
-# Sustituir la pantalla de clientes por una lista cuyo título es el nombre.
 pat=r'    private void clients\(\)\{.*?\n    private boolean match'
 rep='''    private void clients(){
         page("Clientes","Nombre y apellidos son el dato principal");
@@ -46,9 +44,13 @@ s,n=re.subn(pat,rep,s,flags=re.S)
 if n!=1: raise SystemExit('clients replacement failed')
 p.write_text(s,encoding='utf-8')
 
-# Add a robust save/edit/document hub to Client360Activity without changing its entry point.
 c=Path('app/src/main/java/com/rgapro1/ocaso/Client360Activity.java')
 cs=c.read_text(encoding='utf-8')
+
+if 'private String originalIdentityFinal' not in cs:
+    cs=cs.replace('public class Client360Activity {','public class Client360Activity {\n    private String originalIdentityFinal="";',1)
+    cs=cs.replace('String raw=getIntent().getStringExtra("client_json");try{show(new JSONObject(raw==null?"{}":raw));}', 'String raw=getIntent().getStringExtra("client_json");try{client=new JSONObject(raw==null?"{}":raw);originalIdentityFinal=client.optString("identityNumber",client.optString("holderDni",""));show(client);}',1)
+
 if 'private void editClientFinal()' not in cs:
     anchor='    private void showProduct(JSONObject p){'
     add='''    private void editClientFinal(){
@@ -63,24 +65,22 @@ if 'private void editClientFinal()' not in cs:
     private void addDocumentFinal(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,441);}
     private void addProductFinal(){LinearLayout l=col();EditText t=edit("Tipo","");EditText n=edit("Número","");EditText e=edit("Vencimiento","");l.addView(t);l.addView(n);l.addView(e);new AlertDialog.Builder(this).setTitle("Añadir producto/póliza").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{try{JSONArray a=client.optJSONArray("products");if(a==null){a=new JSONArray();client.put("products",a);}JSONObject x=new JSONObject();x.put("type",t.getText().toString().trim());x.put("number",n.getText().toString().trim());x.put("expiry",e.getText().toString().trim());a.put(x);addHistoryFinal("Producto/póliza añadido");persistFinal();render();}catch(Exception z){toast("No se pudo añadir");}}).show();}
     private void addHistoryFinal(String s){try{JSONArray h=client.optJSONArray("history");if(h==null){h=new JSONArray();client.put("history",h);}h.put(new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale.ROOT).format(new java.util.Date())+" — "+s);}catch(Exception ignored){}}
-    private void persistFinal(){try{JSONArray a=new JSONArray(prefs.getString("policies","[]"));for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;String id=client.optString("identityNumber","");if((!id.isEmpty()&&id.equalsIgnoreCase(p.optString("identityNumber",p.optString("holderDni",""))))||client.toString().equals(p.toString())){a.put(i,client);prefs.edit().putString("policies",a.toString()).apply();return;}}toast("No se encontró el cliente original");}catch(Exception e){toast("No se pudo guardar: "+e.getMessage());}}
+    private void persistFinal(){try{JSONArray a=new JSONArray(prefs.getString("policies","[]"));for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;String pid=p.optString("identityNumber",p.optString("holderDni",""));if((!originalIdentityFinal.isEmpty()&&originalIdentityFinal.equalsIgnoreCase(pid))||client.toString().equals(p.toString())){a.put(i,client);prefs.edit().putString("policies",a.toString()).apply();return;}}toast("No se encontró el cliente original");}catch(Exception e){toast("No se pudo guardar: "+e.getMessage());}}
+    private void handleAddedDocumentFinal(Uri u){try{File dir=new File(getFilesDir(),"client_docs");if(!dir.exists())dir.mkdirs();String mime=getContentResolver().getType(u);String ext=mime!=null&&mime.contains("pdf")?".pdf":mime!=null&&mime.contains("png")?".png":".jpg";File out=new File(dir,"documento_"+System.currentTimeMillis()+ext);try(InputStream in=getContentResolver().openInputStream(u);OutputStream os=new FileOutputStream(out)){byte[] b=new byte[8192];int n;while((n=in.read(b))>0)os.write(b,0,n);}JSONArray a=client.optJSONArray("documentPhotos");if(a==null){a=new JSONArray();client.put("documentPhotos",a);}JSONObject d=new JSONObject();d.put("path",out.getAbsolutePath());d.put("name",out.getName());d.put("mime",mime==null?"application/octet-stream":mime);d.put("addedAt",System.currentTimeMillis());a.put(d);addHistoryFinal("Documento añadido: "+out.getName());persistFinal();render();}catch(Exception e){toast("No se pudo añadir el documento: "+e.getMessage());}}
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){super.onActivityResult(requestCode,resultCode,data);if(requestCode==441&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null)handleAddedDocumentFinal(data.getData());}
 '''
     if anchor not in cs: raise SystemExit('showProduct anchor not found')
     cs=cs.replace(anchor,add+anchor,1)
 
-# Add an edit/add button to the existing 360 header/body.
 needle='        body.addView(tv("👤 "+p.optString("holder",p.optString("name","Cliente")),23,true));'
-insert='''        String displayName=p.optString("name","").trim()+" "+p.optString("surname","").trim();
+if needle in cs:
+    insert='''        String displayName=p.optString("name","").trim()+" "+p.optString("surname","").trim();
         if(displayName.trim().isEmpty()) displayName=p.optString("holder","Cliente");
-        body.addView(t("👤 "+displayName.trim(),23,true));
+        body.addView(tv("👤 "+displayName.trim(),23,true));
         Button editFinal=btn("✏️ Editar datos del cliente"); editFinal.setOnClickListener(v->editClientFinal()); body.addView(editFinal,new LinearLayout.LayoutParams(-1,dp(58)));
         Button addFinal=btn("➕ Añadir documento / producto / información"); addFinal.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Añadir al cliente").setItems(new String[]{"Documento / foto / PDF","Producto / póliza"},(d,w)->{if(w==0)addDocumentFinal();else addProductFinal();}).show()); body.addView(addFinal,new LinearLayout.LayoutParams(-1,dp(58)));
 '''
-    if needle not in cs: raise SystemExit('client name needle not found')
     cs=cs.replace(needle,insert,1)
 
-# Support document objects as well as legacy string paths.
 cs=cs.replace('String path=docs.optString(i,"");','Object item=docs.opt(i); String path=item instanceof JSONObject?((JSONObject)item).optString("path",""):String.valueOf(item);',1)
 c.write_text(cs,encoding='utf-8')
-'''
-GitHub.fetch_file... 
