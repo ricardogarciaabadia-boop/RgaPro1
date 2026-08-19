@@ -60,6 +60,8 @@ jobs:
         run: python3 scripts/patch_logo_watermark.py
       - name: Restaurar fecha de nacimiento del DNI y gestión robusta de usuarios
         run: python3 scripts/patch_dni_birthdate_and_user_management_v3.py
+      - name: Aplicar pipeline definitivo de documentos y pólizas
+        run: python3 scripts/patch_policy_document_pipeline_v4.py
       - name: Blindar inicialización de usuarios
         run: python3 scripts/patch_user_compile_safety.py
       - name: Corregir imports de compilación Cliente 360
