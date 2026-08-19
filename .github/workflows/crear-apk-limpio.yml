@@ -57,6 +57,9 @@ jobs:
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
 
+      - name: Aplicar OCR avanzado de decesos, capitales y enlaces cruzados
+        run: python3 scripts/patch_policy_advanced.py
+
       - name: Mostrar logotipo RgaPro como fondo de seguridad
         run: python3 scripts/patch_logo_watermark.py
 
