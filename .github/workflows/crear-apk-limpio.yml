@@ -42,6 +42,9 @@ jobs:
       - name: Aplicar buscador global de clientes
         run: python3 scripts/patch_cliente_search.py
 
+      - name: Aplicar bloqueo seguro de sesión al salir
+        run: python3 scripts/patch_session_lock.py
+
       - name: Corregir imports de compilación Cliente 360
         run: python3 scripts/fix_cliente360_compile.py
 
