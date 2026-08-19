@@ -36,6 +36,9 @@ jobs:
       - name: Aplicar mejoras finales de clientes y documentos
         run: python3 scripts/patch_cliente_final.py
 
+      - name: Corregir imports de compilación Cliente 360
+        run: python3 scripts/fix_cliente360_compile.py
+
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
 
