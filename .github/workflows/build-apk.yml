@@ -32,8 +32,8 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Compilar APK debug y release
-        run: gradle assembleDebug assembleRelease --stacktrace
+      - name: Compilar APK debug
+        run: gradle assembleDebug --stacktrace
 
       - name: Guardar APK debug
         uses: actions/upload-artifact@v4
@@ -41,6 +41,9 @@ jobs:
           name: RgaPro1-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Compilar APK release + R8
+        run: gradle assembleRelease --stacktrace
 
       - name: Guardar APK release
         uses: actions/upload-artifact@v4
