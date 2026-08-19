@@ -16,22 +16,48 @@ s = s.replace(
     'String[] remove={"nationality","sex","birthPlace","parents","supportNumber","issueDate","validityDate","expiry","cif","products","insureds","product","ahorroModalidad"};'
 )
 
-# Menú visible de usuarios. La versión actual de home() tiene Seguridad después de
-# "Futuras bajas"; el parche anterior esperaba otra estructura y abortaba el build.
+# Menú visible de usuarios.
+# No dependemos de que el bloque "Seguridad" conserve exactamente el formato
+# generado por parches anteriores. Primero intentamos insertar antes de "Salir",
+# que es un ancla estable del menú lateral. Como respaldo, usamos "Seguridad" y,
+# finalmente, la inserción justo antes de main.addView(side,...).
 if 'Button users=sideButton("👥  Usuarios de la aplicación")' not in s:
-    anchor_re = r'(?m)^(\s*Button security=sideButton\("🔒  Seguridad"\); security\.setOnClickListener\(v->security\(\)\); side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);)'
-    m = re.search(anchor_re, s)
-    if not m:
-        # Fallback más tolerante: localizar cualquier declaración del botón Seguridad
-        # y su addView inmediato, sin exigir el icono exacto.
-        anchor_re = r'(?m)^(\s*Button security=.*?side\.addView\(security,new LinearLayout\.LayoutParams\(-1,dp\(60\)\)\);)'
-        m = re.search(anchor_re, s)
-    if not m:
-        raise SystemExit("home security menu anchor not found")
-    anchor = m.group(1)
-    indent = re.match(r'^\s*', anchor).group(0)
-    insert = anchor + '\n' + indent + 'Button users=sideButton("👥  Usuarios de la aplicación"); users.setOnClickListener(v->users()); side.addView(users,new LinearLayout.LayoutParams(-1,dp(68)));'
-    s = s[:m.start(1)] + insert + s[m.end(1):]
+    users_line = 'Button users=sideButton("👥  Usuarios de la aplicación"); users.setOnClickListener(v->users()); side.addView(users,new LinearLayout.LayoutParams(-1,dp(68)));'
+
+    # 1. Ancla preferente: botón Salir.
+    # Insertar Usuarios inmediatamente antes de Salir evita depender del formato
+    # concreto que tengan Seguridad/Futuras bajas después de otros parches.
+    logout_re = r'(?m)^(\s*Button\s+logout\s*=\s*sideButton\("Salir"\);.*?side\.addView\(logout,\s*new\s+LinearLayout\.LayoutParams\(-1,\s*dp\(\s*56\s*\)\)\s*;)'
+    m = re.search(logout_re, s)
+
+    if m:
+        anchor = m.group(1)
+        indent = re.match(r'^\s*', anchor).group(0)
+        insert = indent + users_line + '\n' + anchor
+        s = s[:m.start(1)] + insert + s[m.end(1):]
+    else:
+        # 2. Segundo intento: localizar Seguridad sin exigir icono, espacios
+        # concretos ni una línea con formato exacto.
+        security_re = r'(?m)^(\s*Button\s+security\s*=\s*sideButton\([^;]+\);.*?side\.addView\(security,\s*new\s+LinearLayout\.LayoutParams\(-1,\s*dp\(\s*\d+\s*\)\)\s*;)'
+        m = re.search(security_re, s)
+
+        if m:
+            anchor = m.group(1)
+            indent = re.match(r'^\s*', anchor).group(0)
+            insert = anchor + '\n' + indent + users_line
+            s = s[:m.start(1)] + insert + s[m.end(1):]
+        else:
+            # 3. Último respaldo: insertar antes de añadir el menú lateral
+            # al layout principal.
+            side_re = r'(?m)^(\s*main\.addView\(side,\s*new\s+LinearLayout\.LayoutParams\(dp\(\s*150\s*\),-1\)\);)'
+            m = re.search(side_re, s)
+
+            if m:
+                indent = re.match(r'^\s*', m.group(1)).group(0)
+                insert = indent + users_line + '\n' + m.group(1)
+                s = s[:m.start(1)] + insert + s[m.end(1):]
+            else:
+                raise SystemExit("home menu insertion anchor not found")
 
 # Primera cuenta -> almacén local de usuarios.
 old_create = 'prefs.edit().putString("user",u.getText().toString().trim()).putString("pin",p.getText().toString()).putBoolean("biometric",true).apply();currentUser=u.getText().toString().trim();home();'
