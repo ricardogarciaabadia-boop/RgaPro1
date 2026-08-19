@@ -6,7 +6,7 @@ import android.os.*;
 import android.provider.MediaStore;
 import android.view.*;
 import android.widget.*;
-import androidx.core.content.ClipData;
+import android.content.ClipData;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.FragmentActivity;
 import org.json.*;
