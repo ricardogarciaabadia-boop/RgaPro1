@@ -54,6 +54,9 @@ jobs:
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
 
+      - name: Mostrar logotipo RgaPro como fondo de seguridad
+        run: python3 scripts/patch_logo_watermark.py
+
       - name: Corregir imports de compilación Cliente 360
         run: python3 scripts/fix_cliente360_compile.py
 
