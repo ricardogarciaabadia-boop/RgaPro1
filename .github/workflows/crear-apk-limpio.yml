@@ -60,6 +60,9 @@ jobs:
       - name: Aplicar OCR avanzado de decesos, capitales y enlaces cruzados
         run: python3 scripts/patch_policy_advanced.py
 
+      - name: Detectar asegurados de decesos sin DNI visible
+        run: python3 scripts/patch_policy_deceso_noid.py
+
       - name: Corregir formato del resumen avanzado de pólizas
         run: python3 scripts/patch_policy_advanced_fix.py
 
