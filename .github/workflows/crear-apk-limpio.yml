@@ -63,6 +63,9 @@ jobs:
       - name: Corregir formato del resumen avanzado de pólizas
         run: python3 scripts/patch_policy_advanced_fix.py
 
+      - name: Vincular capitales detectados a cada asegurado
+        run: python3 scripts/patch_policy_capital_link.py
+
       - name: Mostrar logotipo RgaPro como fondo de seguridad
         run: python3 scripts/patch_logo_watermark.py
 
