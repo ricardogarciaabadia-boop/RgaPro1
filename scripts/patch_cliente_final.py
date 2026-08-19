@@ -3,41 +3,22 @@ import re
 
 p=Path('app/src/main/java/com/rgapro1/ocaso/MainActivity.java')
 s=p.read_text(encoding='utf-8')
-
 if 'private String displayClientName(JSONObject p)' not in s:
     marker='    private boolean match(JSONObject p,String q)'
     helper='''    private String displayClientName(JSONObject p){
-        String n=p.optString("name","").trim(), a=p.optString("surname","").trim();
-        String full=(n+" "+a).trim();
-        if(!full.isEmpty() && !looksLikeOcr(full)) return full;
-        String h=p.optString("holder","").trim();
-        return (!h.isEmpty() && !looksLikeOcr(h)) ? h : "Cliente sin nombre";
+        String n=p.optString("name","").trim(), a=p.optString("surname","").trim(); String full=(n+" "+a).trim();
+        if(!full.isEmpty()&&!looksLikeOcr(full)) return full; String h=p.optString("holder","").trim();
+        return (!h.isEmpty()&&!looksLikeOcr(h))?h:"Cliente sin nombre";
     }
-    private boolean looksLikeOcr(String x){
-        String u=x.toUpperCase(Locale.ROOT);
-        return u.contains("DOCUMENTO") || u.contains("NNAOONAL") || u.contains("NACIONAL ESP");
-    }
+    private boolean looksLikeOcr(String x){String u=x.toUpperCase(Locale.ROOT);return u.contains("DOCUMENTO")||u.contains("NNAOONAL")||u.contains("NACIONAL ESP");}
 '''
-    if marker not in s: raise SystemExit('marker match not found')
+    if marker not in s: raise SystemExit('match marker not found')
     s=s.replace(marker,helper+marker,1)
-
 pat=r'    private void clients\(\)\{.*?\n    private boolean match'
 rep='''    private void clients(){
-        page("Clientes","Nombre y apellidos son el dato principal");
-        EditText q=edit("Nombre, DNI, NIE, CIF, teléfono, email, póliza…");
-        content.addView(q,new LinearLayout.LayoutParams(-1,dp(54)));
-        LinearLayout list=col(); content.addView(list);
-        Runnable refresh=()->{ list.removeAllViews(); JSONArray a=data();
-            for(int i=0;i<a.length();i++){ JSONObject p=a.optJSONObject(i); if(p==null||!match(p,q.getText().toString())) continue;
-                String name=displayClientName(p); String id=p.optString("identityNumber",p.optString("holderDni","—"));
-                int docs=p.optJSONArray("documentPhotos")==null?0:p.optJSONArray("documentPhotos").length();
-                int products=p.optJSONArray("products")==null?0:p.optJSONArray("products").length();
-                Button x=action("👤  "+name+"\\nDNI/NIE: "+id+"  ·  "+products+" productos  ·  "+docs+" documentos",false);
-                x.setTextSize(15); x.setOnClickListener(v->detail(p)); list.addView(x,new LinearLayout.LayoutParams(-1,dp(82)));
-            }
-            if(list.getChildCount()==0) list.addView(tv("No se encontraron clientes.",15,MUTED,false)); };
-        q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){refresh.run();} public void afterTextChanged(android.text.Editable e){}});
-        refresh.run();
+        page("Clientes","Nombre y apellidos son el dato principal"); EditText q=edit("Nombre, DNI, NIE, CIF, teléfono, email, póliza…"); content.addView(q,new LinearLayout.LayoutParams(-1,dp(54))); LinearLayout list=col(); content.addView(list);
+        Runnable refresh=()->{list.removeAllViews();JSONArray a=data();for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null||!match(p,q.getText().toString()))continue;String name=displayClientName(p);String id=p.optString("identityNumber",p.optString("holderDni","—"));int docs=p.optJSONArray("documentPhotos")==null?0:p.optJSONArray("documentPhotos").length();int products=p.optJSONArray("products")==null?0:p.optJSONArray("products").length();Button x=action("👤  "+name+"\\nDNI/NIE: "+id+"  ·  "+products+" productos  ·  "+docs+" documentos",false);x.setTextSize(15);x.setOnClickListener(v->detail(p));list.addView(x,new LinearLayout.LayoutParams(-1,dp(82)));}if(list.getChildCount()==0)list.addView(tv("No se encontraron clientes.",15,MUTED,false));};
+        q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){refresh.run();}public void afterTextChanged(android.text.Editable e){}});refresh.run();
     }
     private boolean match'''
 s,n=re.subn(pat,rep,s,flags=re.S)
@@ -46,22 +27,20 @@ p.write_text(s,encoding='utf-8')
 
 c=Path('app/src/main/java/com/rgapro1/ocaso/Client360Activity.java')
 cs=c.read_text(encoding='utf-8')
+if 'private JSONObject client;' not in cs: cs=cs.replace('public class Client360Activity {','public class Client360Activity {\n    private JSONObject client; private SharedPreferences prefs; private String originalIdentityFinal="";',1)
+else:
+    if 'private SharedPreferences prefs;' not in cs: cs=cs.replace('private JSONObject client;','private JSONObject client; private SharedPreferences prefs;',1)
+if 'private String originalIdentityFinal' not in cs: cs=cs.replace('private JSONObject client;','private JSONObject client; private String originalIdentityFinal="";',1)
 
-if 'private String originalIdentityFinal' not in cs:
-    cs=cs.replace('public class Client360Activity {','public class Client360Activity {\n    private String originalIdentityFinal="";',1)
-    cs=cs.replace('String raw=getIntent().getStringExtra("client_json");try{show(new JSONObject(raw==null?"{}":raw));}', 'String raw=getIntent().getStringExtra("client_json");try{client=new JSONObject(raw==null?"{}":raw);originalIdentityFinal=client.optString("identityNumber",client.optString("holderDni",""));show(client);}',1)
+old='@Override public void onCreate(Bundle b){super.onCreate(b);String raw=getIntent().getStringExtra("client_json");try{show(new JSONObject(raw==null?"{}":raw));}catch(Exception e){finish();}}'
+new='@Override public void onCreate(Bundle b){super.onCreate(b);prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);String raw=getIntent().getStringExtra("client_json");try{client=new JSONObject(raw==null?"{}":raw);originalIdentityFinal=client.optString("identityNumber",client.optString("holderDni",""));show(client);}catch(Exception e){finish();}}'
+if old in cs: cs=cs.replace(old,new,1)
+elif 'originalIdentityFinal=client.optString' not in cs:
+    cs=re.sub(r'@Override public void onCreate\(Bundle b\)\{.*?\}',new,cs,count=1,flags=re.S)
 
 if 'private void editClientFinal()' not in cs:
     anchor='    private void showProduct(JSONObject p){'
-    add='''    private void editClientFinal(){
-        LinearLayout l=col(); EditText n=edit("Nombre",client.optString("name","")); EditText a=edit("Apellidos",client.optString("surname",""));
-        EditText id=edit("DNI / NIE",client.optString("identityNumber",client.optString("holderDni",""))); EditText ph=edit("Teléfono",client.optString("phone",""));
-        EditText em=edit("Email",client.optString("email","")); EditText ad=edit("Dirección",client.optString("address",""));
-        l.addView(n);l.addView(a);l.addView(id);l.addView(ph);l.addView(em);l.addView(ad);
-        new AlertDialog.Builder(this).setTitle("Editar datos del cliente").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{
-            try{client.put("name",n.getText().toString().trim());client.put("surname",a.getText().toString().trim());client.put("identityNumber",id.getText().toString().trim());client.put("holderDni",id.getText().toString().trim());client.put("holder",(n.getText().toString().trim()+" "+a.getText().toString().trim()).trim());client.put("phone",ph.getText().toString().trim());client.put("email",em.getText().toString().trim());client.put("address",ad.getText().toString().trim());addHistoryFinal("Datos corregidos manualmente");persistFinal();render();
-            }catch(Exception e){toast("No se pudo guardar: "+e.getMessage());}}).show();
-    }
+    add='''    private void editClientFinal(){LinearLayout l=col();EditText n=edit("Nombre",client.optString("name",""));EditText a=edit("Apellidos",client.optString("surname",""));EditText id=edit("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));EditText ph=edit("Teléfono",client.optString("phone",""));EditText em=edit("Email",client.optString("email",""));EditText ad=edit("Dirección",client.optString("address",""));l.addView(n);l.addView(a);l.addView(id);l.addView(ph);l.addView(em);l.addView(ad);new AlertDialog.Builder(this).setTitle("Editar datos del cliente").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{try{client.put("name",n.getText().toString().trim());client.put("surname",a.getText().toString().trim());client.put("identityNumber",id.getText().toString().trim());client.put("holderDni",id.getText().toString().trim());client.put("holder",(n.getText().toString().trim()+" "+a.getText().toString().trim()).trim());client.put("phone",ph.getText().toString().trim());client.put("email",em.getText().toString().trim());client.put("address",ad.getText().toString().trim());addHistoryFinal("Datos corregidos manualmente");persistFinal();render();}catch(Exception e){toast("No se pudo guardar: "+e.getMessage());}}).show();}
     private void addDocumentFinal(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,441);}
     private void addProductFinal(){LinearLayout l=col();EditText t=edit("Tipo","");EditText n=edit("Número","");EditText e=edit("Vencimiento","");l.addView(t);l.addView(n);l.addView(e);new AlertDialog.Builder(this).setTitle("Añadir producto/póliza").setView(l).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{try{JSONArray a=client.optJSONArray("products");if(a==null){a=new JSONArray();client.put("products",a);}JSONObject x=new JSONObject();x.put("type",t.getText().toString().trim());x.put("number",n.getText().toString().trim());x.put("expiry",e.getText().toString().trim());a.put(x);addHistoryFinal("Producto/póliza añadido");persistFinal();render();}catch(Exception z){toast("No se pudo añadir");}}).show();}
     private void addHistoryFinal(String s){try{JSONArray h=client.optJSONArray("history");if(h==null){h=new JSONArray();client.put("history",h);}h.put(new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm",java.util.Locale.ROOT).format(new java.util.Date())+" — "+s);}catch(Exception ignored){}}
@@ -74,13 +53,10 @@ if 'private void editClientFinal()' not in cs:
 
 needle='        body.addView(tv("👤 "+p.optString("holder",p.optString("name","Cliente")),23,true));'
 if needle in cs:
-    insert='''        String displayName=p.optString("name","").trim()+" "+p.optString("surname","").trim();
-        if(displayName.trim().isEmpty()) displayName=p.optString("holder","Cliente");
-        body.addView(tv("👤 "+displayName.trim(),23,true));
-        Button editFinal=btn("✏️ Editar datos del cliente"); editFinal.setOnClickListener(v->editClientFinal()); body.addView(editFinal,new LinearLayout.LayoutParams(-1,dp(58)));
-        Button addFinal=btn("➕ Añadir documento / producto / información"); addFinal.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Añadir al cliente").setItems(new String[]{"Documento / foto / PDF","Producto / póliza"},(d,w)->{if(w==0)addDocumentFinal();else addProductFinal();}).show()); body.addView(addFinal,new LinearLayout.LayoutParams(-1,dp(58)));
+    insert='''        String displayName=p.optString("name","").trim()+" "+p.optString("surname","").trim();if(displayName.trim().isEmpty())displayName=p.optString("holder","Cliente");body.addView(tv("👤 "+displayName.trim(),23,true));
+        Button editFinal=btn("✏️ Editar datos del cliente");editFinal.setOnClickListener(v->editClientFinal());body.addView(editFinal,new LinearLayout.LayoutParams(-1,dp(58)));
+        Button addFinal=btn("➕ Añadir documento / producto / información");addFinal.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Añadir al cliente").setItems(new String[]{"Documento / foto / PDF","Producto / póliza"},(d,w)->{if(w==0)addDocumentFinal();else addProductFinal();}).show());body.addView(addFinal,new LinearLayout.LayoutParams(-1,dp(58)));
 '''
     cs=cs.replace(needle,insert,1)
-
-cs=cs.replace('String path=docs.optString(i,"");','Object item=docs.opt(i); String path=item instanceof JSONObject?((JSONObject)item).optString("path",""):String.valueOf(item);',1)
+cs=cs.replace('String path=docs.optString(i,"");','Object item=docs.opt(i);String path=item instanceof JSONObject?((JSONObject)item).optString("path",""):String.valueOf(item);',1)
 c.write_text(cs,encoding='utf-8')
