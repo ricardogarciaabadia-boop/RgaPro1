@@ -62,26 +62,9 @@ newback = 'Button back=action("↩️  VOLVER",true);back.setTextSize(18);back.s
 if oldback in s:
     s = s.replace(oldback,newback,1)
 
-# Lock the app when it is sent to the background. OCR camera/picker flows are exempt.
-if 'onUserLeaveHint()' not in s:
-    anchor='    @Override public void onCreate(Bundle b){'
-    lock='''    @Override protected void onUserLeaveHint(){
-        super.onUserLeaveHint();
-        if(!isFinishing() && scanFile==null && !dniMode && !multiMode && prefs!=null){
-            prefs.edit().putBoolean("lock_required",true).apply();
-        }
-    }
-    @Override protected void onResume(){
-        super.onResume();
-        if(prefs!=null && prefs.getBoolean("lock_required",false) && currentUser!=null){
-            prefs.edit().putBoolean("lock_required",false).apply();
-            showLogin();
-        }
-    }
-'''
-    if anchor not in s:
-        raise SystemExit('onCreate anchor not found')
-    s=s.replace(anchor,lock+anchor,1)
+# Session/background locking is intentionally implemented only by patch_session_lock.py.
+# Keeping a single onResume/onUserLeaveHint implementation prevents duplicate-method
+# compilation failures when the clean-build workflow applies its patches in sequence.
 
 p.write_text(s,encoding='utf-8')
 
