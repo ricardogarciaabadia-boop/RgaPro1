@@ -3,9 +3,15 @@ from pathlib import Path
 p=Path('app/src/main/java/com/rgapro1/ocaso/Client360Activity.java')
 s=p.read_text(encoding='utf-8')
 
-if 'private void secureShareClient360()' not in s:
-    s=s.replace('    private JSONObject client;\n','    private JSONObject client;\n    private android.content.SharedPreferences prefs;\n    private final java.util.concurrent.Executor biometricExecutor=java.util.concurrent.Executors.newSingleThreadExecutor();\n',1)
+if 'private final java.util.concurrent.Executor biometricExecutor=' not in s:
+    marker='public class Client360Activity extends FragmentActivity {\n'
+    if marker not in s: raise SystemExit('Client360 class marker not found')
+    s=s.replace(marker,marker+'    private final java.util.concurrent.Executor biometricExecutor=java.util.concurrent.Executors.newSingleThreadExecutor();\n',1)
+
+if 'prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);' not in s:
     s=s.replace('        String raw=getIntent().getStringExtra("client_json");','        prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);\n        String raw=getIntent().getStringExtra("client_json");',1)
+
+if 'private void secureShareClient360()' not in s:
     marker='        Button edit=btn("✏️ EDITAR");edit.setTextSize(16);edit.setOnClickListener(v->editClient());\n'
     repl=marker+'        Button secure=btn("🔐 COMPARTIR");secure.setTextSize(16);secure.setOnClickListener(v->secureShareClient360());\n'
     if marker not in s: raise SystemExit('Client360 header marker not found')
@@ -41,4 +47,5 @@ if 'private void secureShareClient360()' not in s:
 '''
     pos=s.rfind('\n}')
     s=s[:pos]+methods+s[pos:]
-    p.write_text(s,encoding='utf-8')
+
+p.write_text(s,encoding='utf-8')
