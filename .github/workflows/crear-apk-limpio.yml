@@ -33,6 +33,9 @@ jobs:
       - name: Aplicar UI Cliente 360
         run: python3 scripts/patch_cliente360_ui.py
 
+      - name: Aplicar mejoras finales de clientes y documentos
+        run: python3 scripts/patch_cliente_final.py
+
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
 
