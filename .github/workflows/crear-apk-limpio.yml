@@ -44,6 +44,8 @@ jobs:
         run: python3 scripts/patch_ocr_document_classifier.py
       - name: Blindar clasificación estricta de documentos
         run: python3 scripts/patch_document_classifier_strict_v2.py
+      - name: Aplicar lectura general de titulares y asegurados de pólizas
+        run: python3 scripts/patch_policy_people_general.py
       - name: Aplicar taxonomía exacta y modalidades de Ahorro
         run: python3 scripts/patch_policy_choices.py
       - name: Aplicar OCR avanzado de decesos, capitales y enlaces cruzados
