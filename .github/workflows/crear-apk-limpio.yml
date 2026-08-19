@@ -45,6 +45,9 @@ jobs:
       - name: Aplicar usuarios y compartición cifrada
         run: python3 scripts/patch_secure_users_sharing.py
 
+      - name: Aplicar compartición segura desde Cliente 360
+        run: python3 scripts/patch_client360_secure_share.py
+
       - name: Aplicar bloqueo seguro de sesión al salir
         run: python3 scripts/patch_session_lock.py
 
