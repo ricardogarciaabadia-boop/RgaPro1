@@ -133,7 +133,7 @@ if "private String classifyPolicyTypeFinal(" not in s:
     s = s.replace(marker, helpers + marker, 1)
 
 if "DNI workflow: only Nombre" not in s:
-    pos = s.find('EditText holder=edit("Titular / nombre completo")')
+    pos = s.find("EditText holder=edit(")
     if pos < 0:
         raise SystemExit("OCR form field declaration not found")
     end = s.find("new AlertDialog.Builder(this)", pos)
