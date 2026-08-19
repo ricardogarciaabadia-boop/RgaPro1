@@ -4,9 +4,8 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 
 /**
- * Production launcher that keeps the legacy MainActivity UI intact while
- * transparently routing its local PIN through SecurePinStore and repairing
- * OCR/client associations in the background.
+ * Production launcher that keeps the legacy MainActivity UI intact while routing
+ * sensitive local state through Android Keystore-backed stores.
  */
 public class SecureMainActivity extends MainActivity {
     private SharedPreferences secureLocalPreferences;
@@ -20,7 +19,8 @@ public class SecureMainActivity extends MainActivity {
             SharedPreferences delegate = super.getSharedPreferences(name, mode);
             secureLocalPreferences = new SecurePinPreferences(
                     delegate,
-                    new SecurePinStore(getApplicationContext())
+                    new SecurePinStore(getApplicationContext()),
+                    new SecureDataStore(getApplicationContext())
             );
         }
         return secureLocalPreferences;
