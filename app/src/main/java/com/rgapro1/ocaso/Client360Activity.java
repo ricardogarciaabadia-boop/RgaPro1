@@ -1,12 +1,12 @@
 package com.rgapro1.ocaso;
 
+import android.app.AlertDialog;
 import android.content.*;
 import android.net.Uri;
 import android.os.*;
 import android.provider.MediaStore;
 import android.view.*;
 import android.widget.*;
-import android.content.ClipData;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.FragmentActivity;
 import org.json.*;
