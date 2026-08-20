@@ -13,6 +13,7 @@ import org.json.*;
 import java.io.*;
 
 public class Client360Activity extends FragmentActivity {
+    // Cliente 360: edición y gestión de documentos; build trigger tras corregir el listener.
     private static final int NAVY=0xff0c2343, BLUE=0xff1985e0, BG=0xfff7f9fc, TEXT=0xff1c2736;
     private JSONObject client;
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
