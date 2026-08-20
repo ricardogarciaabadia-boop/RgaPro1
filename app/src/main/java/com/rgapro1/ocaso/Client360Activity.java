@@ -13,9 +13,10 @@ import org.json.*;
 import java.io.*;
 
 public class Client360Activity extends FragmentActivity {
-    // Cliente 360: edición y gestión de documentos; build trigger tras corregir el listener.
+    // Cliente 360: edición y gestión de documentos.
     private static final int NAVY=0xff0c2343, BLUE=0xff1985e0, BG=0xfff7f9fc, TEXT=0xff1c2736;
     private JSONObject client;
+
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
     private TextView t(String s,int z,boolean b){TextView v=new TextView(this);v.setText(s);v.setTextSize(z);v.setTextColor(TEXT);v.setTypeface(null,b?1:0);v.setPadding(dp(12),dp(8),dp(12),dp(8));return v;}
     private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(15);return b;}
@@ -60,11 +61,74 @@ public class Client360Activity extends FragmentActivity {
 
     private void editClient(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(8),0,dp(8),0);
-        EditText holder=field("Titular",client.optString("holder",""));EditText name=field("Nombre",client.optString("name",""));EditText surname=field("Apellidos",client.optString("surname",""));EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));EditText cif=field("CIF",client.optString("cif",""));EditText phone=field("Teléfono",client.optString("phone",""));EditText email=field("Correo electrónico",client.optString("email",""));EditText address=field("Dirección",client.optString("address",""));EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));EditText type=field("Tipo",client.optString("type",""));EditText number=field("Número de póliza / documento",client.optString("number",""));EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));EditText nationality=field("Nacionalidad",client.optString("nationality",""));EditText sex=field("Sexo",client.optString("sex",""));EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
-        for(EditText e:new EditText[]{holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace})form.addView(e,new LinearLayout.LayoutParams(-1,dp(54)));
-        ScrollView scroll=new ScrollView(this);scroll.addView(form);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Editar cliente").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();
-        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{put(client,"holder",holder.getText().toString());put(client,"name",name.getText().toString());put(client,"surname",surname.getText().toString());put(client,"identityNumber",identity.getText().toString());put(client,"holderDni",identity.getText().toString());put(client,"cif",cif.getText().toString());put(client,"phone",phone.getText().toString());put(client,"email",email.getText().toString());put(client,"address",address.getText().toString());put(client,"birthDate",birth.getText().toString());put(client,"type",type.getText().toString());put(client,"number",number.getText().toString());put(client,"expiry",expiry.getText().toString());put(client,"validityDate",expiry.getText().toString());put(client,"nationality",nationality.getText().toString());put(client,"sex",sex.getText().toString());put(client,"birthPlace",birthPlace.getText().toString());client.put("updatedAt",System.currentTimeMillis());if(saveClient(client)){dialog.dismiss();show();Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();}}));dialog.show();
+        EditText holder=field("Titular",client.optString("holder",""));
+        EditText name=field("Nombre",client.optString("name",""));
+        EditText surname=field("Apellidos",client.optString("surname",""));
+        EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));
+        EditText cif=field("CIF",client.optString("cif",""));
+        EditText phone=field("Teléfono",client.optString("phone",""));
+        EditText email=field("Correo electrónico",client.optString("email",""));
+        EditText address=field("Dirección",client.optString("address",""));
+        EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));
+        EditText type=field("Tipo",client.optString("type",""));
+        EditText number=field("Número de póliza / documento",client.optString("number",""));
+        EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));
+        EditText nationality=field("Nacionalidad",client.optString("nationality",""));
+        EditText sex=field("Sexo",client.optString("sex",""));
+        EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
+        EditText[] fields=new EditText[]{holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace};
+        for(EditText e:fields)form.addView(e,new LinearLayout.LayoutParams(-1,dp(54)));
+
+        ScrollView scroll=new ScrollView(this);scroll.addView(form);
+        AlertDialog dialog=new AlertDialog.Builder(this)
+                .setTitle("Editar cliente")
+                .setView(scroll)
+                .setNegativeButton("Cancelar",null)
+                .setPositiveButton("Guardar",null)
+                .create();
+
+        dialog.setOnShowListener(ignored -> {
+            Button saveButton=dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            saveButton.setOnClickListener(v -> saveEditedClient(dialog,holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace));
+        });
+        dialog.show();
     }
+
+    private void saveEditedClient(AlertDialog dialog, EditText holder, EditText name, EditText surname,
+                                  EditText identity, EditText cif, EditText phone, EditText email,
+                                  EditText address, EditText birth, EditText type, EditText number,
+                                  EditText expiry, EditText nationality, EditText sex, EditText birthPlace){
+        try{
+            put(client,"holder",holder.getText().toString());
+            put(client,"name",name.getText().toString());
+            put(client,"surname",surname.getText().toString());
+            put(client,"identityNumber",identity.getText().toString());
+            put(client,"holderDni",identity.getText().toString());
+            put(client,"cif",cif.getText().toString());
+            put(client,"phone",phone.getText().toString());
+            put(client,"email",email.getText().toString());
+            put(client,"address",address.getText().toString());
+            put(client,"birthDate",birth.getText().toString());
+            put(client,"type",type.getText().toString());
+            put(client,"number",number.getText().toString());
+            put(client,"expiry",expiry.getText().toString());
+            put(client,"validityDate",expiry.getText().toString());
+            put(client,"nationality",nationality.getText().toString());
+            put(client,"sex",sex.getText().toString());
+            put(client,"birthPlace",birthPlace.getText().toString());
+            client.put("updatedAt",System.currentTimeMillis());
+            if(saveClient(client)){
+                dialog.dismiss();
+                show();
+                Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();
+            }else{
+                Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();
+            }
+        }catch(Exception e){
+            Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void put(JSONObject o,String k,String v)throws Exception{String x=v==null?"":v.trim();if(x.isEmpty())o.remove(k);else o.put(k,x);}
     private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}
     catch(Exception e){return false;}}
