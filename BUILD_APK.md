@@ -1,14 +1,16 @@
-# Generar el APK
+# BUILD APK — RGAPRO1
 
-Este entorno no dispone del Android SDK/Gradle, por lo que no puedo producir el binario APK aquí.
+## Estado actual
 
-En un equipo con Android Studio:
-1. Descomprime el proyecto.
-2. Abre la carpeta como proyecto Gradle.
-3. Configura el JDK recomendado por Android Studio.
-4. Sincroniza Gradle.
-5. Build > Generate App Bundle(s) / APK(s) > Generate APK(s).
-6. Para distribución privada, firma el APK con un keystore que controles.
-7. Copia el APK al teléfono e instálalo.
+La compilación de RGAPRO1 debe generar una APK Debug mediante GitHub Actions.
 
-No uses el prototipo con datos reales hasta completar el backend, cifrado, autenticación y pruebas de seguridad.
+Última corrección: `Client360Activity.java` — cierre correcto del listener de Guardar en Cliente 360.
+
+El siguiente build debe validar `assembleDebug`, verificar la APK y publicar el artefacto `RgaPro1-debug`.
+
+## Objetivo inmediato
+
+1. Compilar APK Debug.
+2. Verificar que el archivo APK existe.
+3. Publicar el artefacto para descarga.
+4. Continuar con las mejoras funcionales pendientes después de disponer de una build instalable.
