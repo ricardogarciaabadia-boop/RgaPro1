@@ -33,7 +33,23 @@ jobs:
           gradle-version: '8.7'
 
       - name: Compilar APK debug
-        run: gradle assembleDebug --stacktrace
+        id: debug_build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle assembleDebug --stacktrace 2>&1 | tee debug-build.log
+
+      - name: Guardar diagnóstico de debug
+        if: steps.debug_build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RgaPro1-debug-build-log
+          path: debug-build.log
+          if-no-files-found: error
+
+      - name: Fallar si debug no compila
+        if: steps.debug_build.outcome == 'failure'
+        run: exit 1
 
       - name: Guardar APK debug
         uses: actions/upload-artifact@v4
