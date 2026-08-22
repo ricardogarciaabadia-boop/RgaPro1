@@ -76,6 +76,8 @@ jobs:
         run: python3 scripts/fix_cliente360_state.py
       - name: Aplicar branding RgaPro DESPUÉS de todos los parches
         run: python3 scripts/patch_branding_final.py
+      - name: Reparar líneas Java generadas por parches OCR
+        run: python3 scripts/fix_java_raw_lines.py
 
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
