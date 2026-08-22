@@ -35,6 +35,13 @@ def repair_generated_line(line):
             punctuation,
             normalized,
         )
+
+    # Some patch combinations have produced a one-line Runnable assignment
+    # ending in `}}` instead of `};`: the first brace closes the loop and the
+    # second closes the lambda, but the assignment still needs a semicolon.
+    if 'refresh[0]=()->{' in normalized and normalized.rstrip().endswith('}}'):
+        normalized = normalized.rstrip()[:-1] + ';'
+
     return normalized
 
 
@@ -63,6 +70,6 @@ if remaining:
     )
 
 if changed:
-    print('Malformed Java raw-line, repeated escaped-punctuation, and generated newline normalization fixed')
+    print('Malformed Java raw-line, escaped-punctuation, and generated Runnable normalization fixed')
 else:
     print('No malformed Java raw-line normalization found')
