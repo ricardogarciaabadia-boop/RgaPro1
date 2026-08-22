@@ -83,7 +83,6 @@ for i, line in enumerate(lines):
         indent = line[:len(line) - len(line.lstrip())]
         changed = True
 
-    # The managed-user patch emits the refresh lambda as one generated line.
     if stripped.startswith('refresh[0]=()->{') and stripped.endswith('}}'):
         lines[i] = line + ';'
         line = lines[i]
@@ -101,9 +100,8 @@ for i, line in enumerate(lines):
 
 s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
 
-# Several source-generation patches insert helper bodies independently. If a later
-# patch replaces only the body, the JSONArray declaration can be lost. Restore it
-# locally in every method that uses the generated `out` accumulator.
+# Restore an accumulator declaration if a later source-generation patch replaced
+# a helper body without carrying over its JSONArray local.
 method_re = re.compile(r'(?m)^(    private [^{]+\([^\n]*\)\{)(.*?)(?=^    private |^    @Override |^\})', re.S)
 def add_missing_out(m):
     head, body = m.group(1), m.group(2)
@@ -115,22 +113,20 @@ if new_s != s:
     s = new_s
     changed = True
 
-# onActivityResult is a callback; it cannot see the local birth EditText created
-# inside showOcrResult. Remove that accidental cross-scope reference.
+# onActivityResult cannot access the birth EditText created inside showOcrResult.
 bad_birth = 'if(dniMode&&birth!=null)birth.setVisibility(View.VISIBLE);else processLastImage(false);'
 if bad_birth in s:
     s = s.replace(bad_birth, 'processLastImage(false);')
     changed = True
 
-# A generated helper occasionally references `raw` without retaining it in its
-# signature. Keep the helper compilable; its callers still provide the actual OCR
-# text through the surrounding workflow where available.
+# A generated helper can reference raw without keeping it in its signature. Add a
+# harmless local fallback so the generated Java remains compilable.
 helper_lines = s.splitlines()
 for i, line in enumerate(helper_lines):
     if 'String[] lines=(raw==null?' not in line:
         continue
     start = i
-    while start >= 0 and not re.match(r'^    private .*\{$', helper_lines[start].strip()):
+    while start >= 0 and not re.match(r'^\s{4}private .*\{$', helper_lines[start]):
         start -= 1
     if start < 0:
         continue
