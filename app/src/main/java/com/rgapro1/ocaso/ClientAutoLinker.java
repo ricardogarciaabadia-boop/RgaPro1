@@ -13,13 +13,14 @@ import org.json.JSONObject;
 import java.io.File;
 import java.text.Normalizer;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Repairs OCR data and keeps all documents for the same person under one client. */
+/** Repairs OCR data and keeps documents for the same person under one client. */
 public final class ClientAutoLinker {
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
     private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -46,7 +47,11 @@ public final class ClientAutoLinker {
                 SharedPreferences prefs = context.getSharedPreferences("rgapro_local", Context.MODE_PRIVATE);
                 JSONArray source = new JSONArray(prefs.getString("policies", "[]"));
                 enhanceSavedImages(context, source);
-                for (int i = 0; i < source.length(); i++) enrich(source.optJSONObject(i));
+                for (int i = 0; i < source.length(); i++) {
+                    JSONObject p = source.optJSONObject(i);
+                    enrich(p);
+                    enrichDeathPolicy(p, source);
+                }
                 merge(source);
                 prefs.edit().putString("policies", source.toString()).apply();
             } catch (Exception ignored) {
@@ -90,7 +95,7 @@ public final class ClientAutoLinker {
                     doc.put("ocrEnhanced", true);
                     processed++;
                 } catch (Exception ignored) {
-                    // Leave it pending so the next cycle can retry.
+                    // Retry on a later cycle when possible.
                 }
             }
         }
@@ -120,7 +125,30 @@ public final class ClientAutoLinker {
         if (empty(p, "birthDate")) put(p, "birthDate", dateAfter(upper, "NACIMIENTO", "NAC"));
         if (empty(p, "validityDate")) { String d=dateAfter(upper,"VALIDEZ","CADUCIDAD","VENCIMIENTO","VENC"); if(!d.isEmpty()){put(p,"validityDate",d);put(p,"expiry",d);} }
         if (empty(p, "issueDate")) put(p, "issueDate", dateAfter(upper, "EMISION", "EMISIÓN", "EFECTO", "ALTA"));
-        if (empty(p, "type")) put(p, "type", (upper.contains("PÓLIZA") || upper.contains("POLIZA")) ? "Otros" : "Cliente / DNI");
+        if (empty(p, "type")) put(p, "type", isDeathPolicy(upper) ? "Decesos" : ((upper.contains("PÓLIZA") || upper.contains("POLIZA")) ? "Otros" : "Cliente / DNI"));
+    }
+
+    /** Parses the insured table and links each known identity to its existing client. */
+    private static void enrichDeathPolicy(JSONObject policy, JSONArray allClients) throws Exception {
+        if (policy == null) return;
+        String text = policy.optString("ocrText", "");
+        if (text.trim().isEmpty() || !isDeathPolicy(text.toUpperCase(Locale.ROOT))) return;
+        String holderDni = policy.optString("holderDni", policy.optString("identityNumber", ""));
+        String holder = policy.optString("holder", "");
+        List<InsuredPerson> people = DeathPolicyInsuredParser.parse(text, holderDni, holder);
+        if (people.isEmpty()) return;
+        PolicyRelationshipService.applyPolicy(policy, policy.optString("number", ""), "Decesos", people);
+        for (InsuredPerson person : people) {
+            if (person.getIdentityNumber().isEmpty()) continue;
+            if (person.isHolder()) {
+                PolicyRelationshipService.linkExistingClient(allClients, person.getIdentityNumber(), policy.optString("number", ""), "Decesos", "TOMADOR", person.getCapital());
+            }
+            PolicyRelationshipService.linkExistingClient(allClients, person.getIdentityNumber(), policy.optString("number", ""), "Decesos", "ASEGURADO", person.getCapital());
+        }
+    }
+
+    private static boolean isDeathPolicy(String upper) {
+        return upper.contains("DECESOS") || upper.contains("SEGURO DE DECESOS") || upper.contains("RELACIÓN DE ASEGURADOS") || upper.contains("RELACION DE ASEGURADOS");
     }
 
     private static void merge(JSONArray a) throws Exception {
@@ -132,7 +160,9 @@ public final class ClientAutoLinker {
 
     private static boolean sameClient(JSONObject a, JSONObject b) {
         String ai=norm(id(a)), bi=norm(id(b));
+        // If both records have different identities, never merge them by name.
         if(!ai.isEmpty()&&!bi.isEmpty()) return ai.equals(bi);
+        if(!ai.isEmpty() || !bi.isEmpty()) return false;
         String ae=norm(a.optString("email","")),be=norm(b.optString("email","")); if(!ae.isEmpty()&&!be.isEmpty()&&ae.equals(be))return true;
         String ap=digits(a.optString("phone","")),bp=digits(b.optString("phone","")); if(!ap.isEmpty()&&!bp.isEmpty()&&ap.equals(bp))return true;
         String an=normName(fullName(a)),bn=normName(fullName(b));
@@ -144,15 +174,20 @@ public final class ClientAutoLinker {
     private static void mergeInto(JSONObject base,JSONObject other)throws Exception{
         String[] fields={"holder","surname","name","identityType","identityNumber","holderDni","cif","birthDate","nationality","sex","address","birthPlace","parents","supportNumber","issueDate","validityDate","expiry","phone","email"};
         for(String k:fields)copyIfEmpty(base,other,k);
-        JSONArray docs=base.optJSONArray("documentPhotos");if(docs==null)docs=new JSONArray();Set<String>seen=new HashSet<>();for(int i=0;i<docs.length();i++){JSONObject d=docs.optJSONObject(i);if(d!=null)seen.add(d.optString("path",""));}
-        JSONArray od=other.optJSONArray("documentPhotos");if(od!=null)for(int i=0;i<od.length();i++){JSONObject d=od.optJSONObject(i);if(d!=null&&!seen.contains(d.optString("path",""))){docs.put(d);seen.add(d.optString("path",""));}}base.put("documentPhotos",docs);
-        JSONArray policies=base.optJSONArray("linkedPolicies");if(policies==null)policies=new JSONArray();addPolicyIfPresent(policies,base);addPolicyIfPresent(policies,other);base.put("linkedPolicies",uniquePolicies(policies));
+        mergeArray(base, other, "documentPhotos");
+        mergeArray(base, other, "policyRelationships");
+        mergeArray(base, other, "insureds");
         String bo=base.optString("ocrText",""),oo=other.optString("ocrText","");if(!oo.isEmpty()&&!bo.contains(oo))base.put("ocrText",(bo.isEmpty()?"":bo+"\n\n--- DOCUMENTO ASOCIADO ---\n")+oo);
         base.put("updatedAt",System.currentTimeMillis());
     }
 
-    private static void addPolicyIfPresent(JSONArray a,JSONObject p)throws Exception{String n=p.optString("number","").trim();if(n.isEmpty())return;JSONObject x=new JSONObject();x.put("number",n);x.put("type",p.optString("type","Otros"));x.put("expiry",p.optString("expiry",p.optString("validityDate","")));x.put("holder",p.optString("holder",""));a.put(x);}
-    private static JSONArray uniquePolicies(JSONArray in)throws Exception{JSONArray out=new JSONArray();Set<String>seen=new HashSet<>();for(int i=0;i<in.length();i++){JSONObject p=in.optJSONObject(i);if(p==null)continue;String k=norm(p.optString("number",""));if(k.isEmpty()||seen.add(k))out.put(p);}return out;}
+    private static void mergeArray(JSONObject base, JSONObject other, String key) throws Exception {
+        JSONArray docs=base.optJSONArray(key);if(docs==null)docs=new JSONArray();Set<String>seen=new HashSet<>();
+        for(int i=0;i<docs.length();i++){JSONObject d=docs.optJSONObject(i);if(d!=null)seen.add(d.optString("path", d.optString("number", "")));}
+        JSONArray od=other.optJSONArray(key);if(od!=null)for(int i=0;i<od.length();i++){JSONObject d=od.optJSONObject(i);if(d!=null&&!seen.contains(d.optString("path", d.optString("number", "")))){docs.put(d);seen.add(d.optString("path", d.optString("number", "")));}}
+        base.put(key,docs);
+    }
+
     private static void copyIfEmpty(JSONObject a,JSONObject b,String k)throws Exception{if(empty(a,k)&&!empty(b,k))a.put(k,b.optString(k));}
     private static boolean empty(JSONObject p,String k){return p==null||p.optString(k,"").trim().isEmpty();}
     private static void put(JSONObject p,String k,String v){try{if(v!=null&&!v.trim().isEmpty())p.put(k,v.trim());}catch(Exception ignored){}}
