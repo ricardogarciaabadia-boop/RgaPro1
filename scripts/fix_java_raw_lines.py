@@ -21,8 +21,8 @@ def normalize_java_escapes(line):
             run = line[i:j]
             nxt = line[j] if j < len(line) else ''
             punctuation = ':<>_%.,'
-            # A single/multiple Markdown escape before Java punctuation is not
-            # a Java escape. Keep real escapes such as \r, \n, \", and \'.
+            # A Markdown escape before punctuation is not a Java escape.
+            # Preserve Java escapes such as \r, \n, \", and \'.
             if nxt in punctuation and (nxt != '.' or not in_string):
                 out.append(nxt)
                 i = j + 1
@@ -46,6 +46,14 @@ for i, line in enumerate(lines):
         lines[i] = normalized
         changed = True
 
+    # This generated OCR-parser statement is especially sensitive to the
+    # Markdown normalizer: Java needs literal backslash-r/backslash-n here.
+    if 'String[] lines=(raw==null' in lines[i]:
+        fixed = '        String[] lines=(raw==null?"":raw.replace(\'\\\\r\',\'\\\\n\')).split("\\\\n");'
+        if lines[i] != fixed:
+            lines[i] = fixed
+            changed = True
+
     stripped = lines[i].strip()
     if stripped.startswith('refresh[0]=()->{') and stripped.endswith('}}'):
         lines[i] = lines[i] + ';'
@@ -53,8 +61,8 @@ for i, line in enumerate(lines):
 
 s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
 
-# Repair the OCR parser line explicitly. This must happen AFTER escape
-# normalization because \r and \n are legitimate Java character/string escapes.
+# Repair the block parser variant as well. This happens AFTER escape
+# normalization because \r and \n are legitimate Java escapes.
 s = re.sub(
     r'(?m)^\s*String\[\] lines=.*split\(".*"\);$',
     '        String[] lines=(block==null?"":block.replace(\'\\\\r\',\'\\\\n\')).split("\\\\n");',
