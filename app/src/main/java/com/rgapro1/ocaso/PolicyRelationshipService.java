@@ -2,16 +2,10 @@ package com.rgapro1.ocaso;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
-/**
- * Applies policy/person relationships without creating clients implicitly.
- * Identity number is the authoritative link; names are deliberately not used here.
- */
+/** Applies policy/person relationships without creating clients implicitly. */
 public final class PolicyRelationshipService {
     private PolicyRelationshipService() {}
 
@@ -26,6 +20,7 @@ public final class PolicyRelationshipService {
                 row.put("birthDate", person.getBirthDate());
                 row.put("identityNumber", person.getIdentityNumber());
                 row.put("capital", person.getCapital());
+                row.put("accidentCapital", person.getAccidentCapital());
                 row.put("holder", person.isHolder());
                 insureds.put(row);
             }
@@ -35,10 +30,7 @@ public final class PolicyRelationshipService {
         if (!blank(policyType)) policyRecord.put("type", policyType.trim());
     }
 
-    /**
-     * Links a policy to an already existing client. It never creates a client.
-     * If the same policy already exists for the person, it is not duplicated.
-     */
+    /** Links only to an existing client identified by DNI/NIE; never creates one. */
     public static boolean linkExistingClient(JSONArray clients, String identityNumber,
                                              String policyNumber, String policyType,
                                              String role, String capital) throws Exception {
@@ -87,9 +79,7 @@ public final class PolicyRelationshipService {
 
     private static void addUnique(JSONArray values, String value) throws Exception {
         if (blank(value)) return;
-        for (int i = 0; i < values.length(); i++) {
-            if (value.equalsIgnoreCase(values.optString(i, ""))) return;
-        }
+        for (int i = 0; i < values.length(); i++) if (value.equalsIgnoreCase(values.optString(i, ""))) return;
         values.put(value);
     }
 
@@ -97,6 +87,5 @@ public final class PolicyRelationshipService {
         if (value == null) return "";
         return value.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
     }
-
     private static boolean blank(String value) { return value == null || value.trim().isEmpty(); }
 }
