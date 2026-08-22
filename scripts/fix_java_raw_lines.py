@@ -14,11 +14,9 @@ for i, line in enumerate(lines):
     stripped = line.strip()
 
     # Normalize Markdown-style punctuation escapes accidentally emitted into Java.
-    normalized = (line.replace('\\:', ':')
-                       .replace('\\<', '<')
-                       .replace('\\>', '>')
-                       .replace('\\_', '_')
-                       .replace('\\%', '%'))
+    # Some generators escaped punctuation twice (e.g. CASE\\_INSENSITIVE), so
+    # collapse one-or-more backslashes before punctuation rather than only one.
+    normalized = re.sub(r'\\+([:<>_%])', r'\1', line)
     # Remove only a single backslash before a dot; preserve legitimate \\. regex escapes.
     normalized = re.sub(r'(?<!\\)\\\.', '.', normalized)
     if normalized != line:
