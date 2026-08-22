@@ -13,11 +13,14 @@ for i, line in enumerate(lines):
     indent = line[:len(line) - len(line.lstrip())]
     stripped = line.strip()
 
-    # Normalize Markdown-style escapes accidentally emitted into Java source.
+    # Normalize Markdown-style punctuation escapes accidentally emitted into Java.
     normalized = (line.replace('\\:', ':')
-                       .replace('\\.', '.')
                        .replace('\\<', '<')
-                       .replace('\\>', '>'))
+                       .replace('\\>', '>')
+                       .replace('\\_', '_')
+                       .replace('\\%', '%'))
+    # Remove only a single backslash before a dot; preserve legitimate \\. regex escapes.
+    normalized = re.sub(r'(?<!\\)\\\.', '.', normalized)
     if normalized != line:
         lines[i] = normalized
         line = normalized
