@@ -21,8 +21,8 @@ def normalize_java_escapes(line):
             run = line[i:j]
             nxt = line[j] if j < len(line) else ''
             punctuation = ':<>_%.,'
-            # A Markdown escape before punctuation is not a Java escape.
-            # Preserve Java escapes such as \r, \n, \", and \'.
+            # Only remove Markdown-style escapes before punctuation.
+            # Never alter Java escapes such as \r, \n, \", or \'.
             if nxt in punctuation and (nxt != '.' or not in_string):
                 out.append(nxt)
                 i = j + 1
@@ -46,10 +46,10 @@ for i, line in enumerate(lines):
         lines[i] = normalized
         changed = True
 
-    # This generated OCR-parser statement is especially sensitive to the
-    # Markdown normalizer: Java needs literal backslash-r/backslash-n here.
+    # Rebuild this generated OCR-parser statement from a literal template.
+    # This prevents the normalizer from ever producing invalid Java char literals.
     if 'String[] lines=(raw==null' in lines[i]:
-        fixed = '        String[] lines=(raw==null?"":raw.replace(\'\\\\r\',\'\\\\n\')).split("\\\\n");'
+        fixed = r'''        String[] lines=(raw==null?"":raw.replace('\r','\n')).split("\\n");'''
         if lines[i] != fixed:
             lines[i] = fixed
             changed = True
@@ -61,11 +61,10 @@ for i, line in enumerate(lines):
 
 s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
 
-# Repair the block parser variant as well. This happens AFTER escape
-# normalization because \r and \n are legitimate Java escapes.
+# Repair the block parser variant as well. Keep Java escapes literal.
 s = re.sub(
     r'(?m)^\s*String\[\] lines=.*split\(".*"\);$',
-    '        String[] lines=(block==null?"":block.replace(\'\\\\r\',\'\\\\n\')).split("\\\\n");',
+    r'''        String[] lines=(block==null?"":block.replace('\r','\n')).split("\\n");''',
     s,
     count=1,
 ) if 'private OcrData parseOcr(String raw)' not in s else s
@@ -86,17 +85,14 @@ for marker, declaration in exact_out_markers:
                 s = s[:method_end + 1] + '\n' + declaration + s[method_end + 1:]
                 changed = True
 
-# Remove declarations accidentally inserted into methods that already receive out.
 s = s.replace('private void appendSearchJson(StringBuilder out,JSONObject o){JSONArray out=new JSONArray();', 'private void appendSearchJson(StringBuilder out,JSONObject o){')
 s = s.replace('private void appendSearchArray(StringBuilder out,JSONArray a){JSONArray out=new JSONArray();', 'private void appendSearchArray(StringBuilder out,JSONArray a){')
 
-# onActivityResult cannot access the birth EditText created inside showOcrResult.
 bad_birth = 'if(dniMode&&birth!=null)birth.setVisibility(View.VISIBLE);else processLastImage(false);'
 if bad_birth in s:
     s = s.replace(bad_birth, 'processLastImage(false);')
     changed = True
 
-# Restore the DNI parser if a later UI patch removed it.
 if 'private OcrData parseOcr(String raw)' not in s:
     marker = '    private void showOcrResult(String raw){'
     if marker in s:
