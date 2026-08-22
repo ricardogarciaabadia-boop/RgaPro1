@@ -6,44 +6,39 @@ s = JAVA.read_text(encoding='utf-8')
 lines = s.splitlines()
 changed = False
 
-fixed_array = 'String[] lines=(raw==null?"":raw.replace("\\r","\\n")).split("\\n");'
-fixed_text = "String text=raw==null?\"\":raw.replace('\\r','\\n');"
+# Canonical Java source forms. Keep these as ordinary Java escapes; do not
+# generate Markdown-style backslash escapes such as \: or \. into .java files.
+FIXED_ARRAY = r'String[] lines=(raw==null?"":raw.replace("\r","\n")).split("\n");'
+FIXED_TEXT = r'String text=raw==null?"":raw.replace(\'\r\',\'\n\');'
 
-for i, line in enumerate(lines):
+for i, original in enumerate(lines):
+    line = original
     indent = line[:len(line) - len(line.lstrip())]
 
-    # Normalize Markdown-style punctuation escapes accidentally emitted into Java.
+    # Remove accidental Markdown punctuation escaping, but only for punctuation
+    # that is never an escape in Java source. Do this before the marker checks.
     normalized = (line.replace('\\:', ':')
                        .replace('\\<', '<')
                        .replace('\\>', '>')
                        .replace('\\_', '_')
                        .replace('\\%', '%'))
-    # Remove only a single backslash before a dot; preserve legitimate \\. regex escapes.
     normalized = re.sub(r'(?<!\\)\\\.', '.', normalized)
-    if normalized != line:
-        lines[i] = normalized
-        line = normalized
-        changed = True
+    line = normalized
 
-    # Replace the complete generated line when it contains the known newline split form.
-    if 'String[] lines=' in line and 'raw' in line and 'replace' in line and '.split' in line:
+    # Any generated declaration containing these markers is replaced wholesale.
+    # This is intentionally broader than the previous test because repeated
+    # patch runs can leave malformed escaped quotes/backslashes in the line.
+    if 'String[] lines=' in line and 'raw' in line:
         prefix = line[:line.index('String[] lines=')]
-        replacement = prefix + fixed_array
-        if line != replacement:
-            lines[i] = replacement
-            changed = True
-        continue
+        line = prefix + FIXED_ARRAY
 
-    # This declaration is sometimes appended after another statement on the same line
-    # (for example: "JSONArray out=new JSONArray();String text=..."). Replace only
-    # the malformed String-text declaration and preserve the preceding statements.
-    marker = 'String text='
-    if marker in line and 'raw==null' in line and 'replace' in line:
-        prefix = line[:line.index(marker)]
-        replacement = prefix + fixed_text
-        if line != replacement:
-            lines[i] = replacement
-            changed = True
+    elif 'String text=' in line and 'raw==null' in line and 'replace' in line:
+        prefix = line[:line.index('String text=')]
+        line = prefix + FIXED_TEXT
+
+    if line != original:
+        lines[i] = line
+        changed = True
 
 if changed:
     JAVA.write_text('\n'.join(lines) + ('\n' if s.endswith('\n') else ''), encoding='utf-8')
