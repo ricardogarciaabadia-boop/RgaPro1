@@ -1,9 +1,10 @@
 package com.rgapro1.ocaso;
 
-import java.time.LocalDate;
-import java.time.Period;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Objects;
 
 /** Structured insured person extracted from a policy. A person may hold other policies. */
@@ -65,10 +66,16 @@ public final class InsuredPerson {
     }
 
     public static boolean isUnder14At(String birthDate, String referenceDate) {
-        LocalDate birth = parseDate(birthDate);
-        LocalDate reference = parseDate(referenceDate);
-        if (birth == null || reference == null || birth.isAfter(reference)) return false;
-        return Period.between(birth, reference).getYears() < 14;
+        Date birth = parseDate(birthDate);
+        Date reference = parseDate(referenceDate);
+        if (birth == null || reference == null || birth.after(reference)) return false;
+        Calendar b = Calendar.getInstance();
+        Calendar r = Calendar.getInstance();
+        b.setTime(birth);
+        r.setTime(reference);
+        int age = r.get(Calendar.YEAR) - b.get(Calendar.YEAR);
+        if (r.get(Calendar.DAY_OF_YEAR) < b.get(Calendar.DAY_OF_YEAR)) age--;
+        return age < 14;
     }
 
     public static String normalizeId(String value) {
@@ -78,17 +85,14 @@ public final class InsuredPerson {
 
     private static String clean(String value) { return value == null ? "" : value.trim().replaceAll("\\s+", " "); }
 
-    private static LocalDate parseDate(String value) {
+    private static Date parseDate(String value) {
         if (value == null) return null;
         String x = value.trim();
-        DateTimeFormatter[] formats = {
-                DateTimeFormatter.ofPattern("dd-MM-yyyy"),
-                DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                DateTimeFormatter.ofPattern("d-M-yyyy"),
-                DateTimeFormatter.ofPattern("d/M/yyyy")
-        };
-        for (DateTimeFormatter format : formats) {
-            try { return LocalDate.parse(x, format); } catch (DateTimeParseException ignored) { }
+        String[] formats = {"dd-MM-yyyy", "dd/MM/yyyy", "d-M-yyyy", "d/M/yyyy"};
+        for (String pattern : formats) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.ROOT);
+            format.setLenient(false);
+            try { return format.parse(x); } catch (ParseException ignored) { }
         }
         return null;
     }
