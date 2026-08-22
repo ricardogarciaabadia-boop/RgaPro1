@@ -55,6 +55,16 @@ for original in lines:
         changed = True
     out.append(repaired)
 
+# A generator can also split the Runnable assignment over physical lines. In
+# that form the lambda closes on the line immediately before addAppUser(), and
+# the required assignment semicolon is otherwise lost. Repair that exact
+# generated boundary without changing ordinary method-closing braces.
+for i in range(1, len(out)):
+    if (re.match(r'\s*private\s+void\s+addAppUser\s*\(', out[i])
+            and out[i - 1].strip() == '}'):
+        out[i - 1] = out[i - 1] + ';'
+        changed = True
+
 result = '\n'.join(out) + ('\n' if s.endswith('\n') else '')
 if result != s:
     JAVA.write_text(result, encoding='utf-8')
