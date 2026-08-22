@@ -11,7 +11,6 @@ fixed_text = "String text=raw==null?\"\":raw.replace('\\r','\\n');"
 
 for i, line in enumerate(lines):
     indent = line[:len(line) - len(line.lstrip())]
-    stripped = line.strip()
 
     # Normalize Markdown-style punctuation escapes accidentally emitted into Java.
     normalized = (line.replace('\\:', ':')
@@ -24,17 +23,26 @@ for i, line in enumerate(lines):
     if normalized != line:
         lines[i] = normalized
         line = normalized
-        stripped = line.strip()
-        indent = line[:len(line) - len(line.lstrip())]
         changed = True
 
+    # Replace the complete generated line when it contains the known newline split form.
     if 'String[] lines=' in line and 'raw' in line and 'replace' in line and '.split' in line:
-        if lines[i] != indent + fixed_array:
-            lines[i] = indent + fixed_array
+        prefix = line[:line.index('String[] lines=')]
+        replacement = prefix + fixed_array
+        if line != replacement:
+            lines[i] = replacement
             changed = True
-    elif re.search(r'String\s+text\s*=\s*raw\s*==\s*null', stripped) and 'raw' in line and 'replace' in line:
-        if lines[i] != indent + fixed_text:
-            lines[i] = indent + fixed_text
+        continue
+
+    # This declaration is sometimes appended after another statement on the same line
+    # (for example: "JSONArray out=new JSONArray();String text=..."). Replace only
+    # the malformed String-text declaration and preserve the preceding statements.
+    marker = 'String text='
+    if marker in line and 'raw==null' in line and 'replace' in line:
+        prefix = line[:line.index(marker)]
+        replacement = prefix + fixed_text
+        if line != replacement:
+            lines[i] = replacement
             changed = True
 
 if changed:
