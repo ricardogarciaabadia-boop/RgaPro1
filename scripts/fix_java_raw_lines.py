@@ -37,9 +37,12 @@ def repair_generated_line(line):
         )
 
     # Some patch combinations have produced a one-line Runnable assignment
-    # ending in `}}` instead of `};`: the first brace closes the loop and the
-    # second closes the lambda, but the assignment still needs a semicolon.
-    if 'refresh[0]=()->{' in normalized and normalized.rstrip().endswith('}}'):
+    # ending in `}}` instead of `};`. Whitespace around the assignment is
+    # harmless, so match the Java syntax rather than one exact serialization.
+    # The first brace closes the lambda body and the second closes the
+    # surrounding construct; the assignment itself still needs a semicolon.
+    if (re.search(r'refresh\s*\[\s*0\s*\]\s*=\s*\(\s*\)\s*->\s*\{', normalized)
+            and normalized.rstrip().endswith('}}')):
         normalized = normalized.rstrip()[:-1] + ';'
 
     return normalized
