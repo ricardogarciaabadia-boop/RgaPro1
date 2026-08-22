@@ -13,7 +13,6 @@ import org.json.*;
 import java.io.*;
 
 public class Client360Activity extends FragmentActivity {
-    // Cliente 360: edición y gestión de documentos.
     private static final int NAVY=0xff0c2343, BLUE=0xff1985e0, BG=0xfff7f9fc, TEXT=0xff1c2736;
     private JSONObject client;
 
@@ -44,7 +43,10 @@ public class Client360Activity extends FragmentActivity {
         body.addView(t("👤 "+client.optString("holder",client.optString("name","Cliente")),23,true));
         String id=client.optString("identityNumber",client.optString("holderDni","—"));
         body.addView(t("Identificación: "+id+"\nTeléfono: "+client.optString("phone","—")+"\nEmail: "+client.optString("email","—")+"\nDirección: "+client.optString("address","—"),16,false));
-        addGroup(body,"📦 PRODUCTO / PÓLIZA",client);addGroup(body,"📄 DOCUMENTACIÓN",client);addGroup(body,"🔔 VENCIMIENTO / BAJA",client);
+        addGroup(body,"📦 PRODUCTO / PÓLIZA",client);
+        addPolicyRelationships(body, client);
+        addInsureds(body, client);
+        addGroup(body,"📄 DOCUMENTACIÓN",client);addGroup(body,"🔔 VENCIMIENTO / BAJA",client);
         sv.addView(body);root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     }
 
@@ -56,82 +58,60 @@ public class Client360Activity extends FragmentActivity {
         if(docs!=null){for(int i=0;i<docs.length();i++){String path=documentPath(docs.opt(i));if(path.isEmpty())continue;Button d=btn("📄 "+new File(path).getName());d.setOnClickListener(v->documentMenu(path));body.addView(d,new LinearLayout.LayoutParams(-1,dp(58)));}}
     }
 
+    private void addPolicyRelationships(LinearLayout body, JSONObject p){
+        JSONArray links=p.optJSONArray("policyRelationships");
+        if(links==null||links.length()==0)return;
+        body.addView(t("🧾 PÓLIZAS VINCULADAS",18,true));
+        for(int i=0;i<links.length();i++){
+            JSONObject link=links.optJSONObject(i);if(link==null)continue;
+            String roles=formatRoles(link.optJSONArray("roles"));
+            String capital=link.optString("capital","");
+            String text=link.optString("type","Póliza")+" · "+link.optString("number","—")+"\nRol: "+(roles.isEmpty()?"—":roles)+(capital.isEmpty()?"":" · Capital: "+capital);
+            body.addView(btn(text),new LinearLayout.LayoutParams(-1,dp(74)));
+        }
+    }
+
+    private void addInsureds(LinearLayout body, JSONObject p){
+        JSONArray insureds=p.optJSONArray("insureds");
+        if(insureds==null||insureds.length()==0)return;
+        body.addView(t("👥 ASEGURADOS DE LA PÓLIZA",18,true));
+        for(int i=0;i<insureds.length();i++){
+            JSONObject person=insureds.optJSONObject(i);if(person==null)continue;
+            StringBuilder s=new StringBuilder();
+            s.append(person.optString("name","Sin nombre"));
+            if(person.optBoolean("holder",false))s.append("\nTitular · Asegurado");else s.append("\nAsegurado");
+            s.append("\nDNI/NIE: ").append(person.optString("identityNumber","—"));
+            s.append(" · Nacimiento: ").append(person.optString("birthDate","—"));
+            s.append("\nCapital: ").append(person.optString("capital","—"));
+            body.addView(btn(s.toString()),new LinearLayout.LayoutParams(-1,dp(104)));
+        }
+    }
+
+    private String formatRoles(JSONArray roles){
+        if(roles==null)return "";
+        StringBuilder s=new StringBuilder();
+        for(int i=0;i<roles.length();i++){if(i>0)s.append(" + ");s.append(roles.optString(i,""));}
+        return s.toString();
+    }
+
     private String documentPath(Object item){if(item==null||item==JSONObject.NULL)return "";if(item instanceof JSONObject)return ((JSONObject)item).optString("path","");return String.valueOf(item);}
     private void showProduct(JSONObject p){new AlertDialog.Builder(this).setTitle("Producto / póliza").setMessage("Tipo: "+p.optString("type","—")+"\nNúmero: "+p.optString("number","—")+"\nTitular: "+p.optString("holder","—")+"\nVencimiento: "+p.optString("expiry",p.optString("validityDate","—"))).setPositiveButton("Cerrar",null).show();}
 
     private void editClient(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(8),0,dp(8),0);
-        EditText holder=field("Titular",client.optString("holder",""));
-        EditText name=field("Nombre",client.optString("name",""));
-        EditText surname=field("Apellidos",client.optString("surname",""));
-        EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni","")));
-        EditText cif=field("CIF",client.optString("cif",""));
-        EditText phone=field("Teléfono",client.optString("phone",""));
-        EditText email=field("Correo electrónico",client.optString("email",""));
-        EditText address=field("Dirección",client.optString("address",""));
-        EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));
-        EditText type=field("Tipo",client.optString("type",""));
-        EditText number=field("Número de póliza / documento",client.optString("number",""));
-        EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));
-        EditText nationality=field("Nacionalidad",client.optString("nationality",""));
-        EditText sex=field("Sexo",client.optString("sex",""));
-        EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
-        EditText[] fields=new EditText[]{holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace};
-        for(EditText e:fields)form.addView(e,new LinearLayout.LayoutParams(-1,dp(54)));
-
+        EditText holder=field("Titular",client.optString("holder",""));EditText name=field("Nombre",client.optString("name",""));EditText surname=field("Apellidos",client.optString("surname",""));EditText identity=field("DNI / NIE",client.optString("identityNumber",client.optString("holderDni",""));
+        EditText cif=field("CIF",client.optString("cif",""));EditText phone=field("Teléfono",client.optString("phone",""));EditText email=field("Correo electrónico",client.optString("email",""));EditText address=field("Dirección",client.optString("address",""));EditText birth=field("Fecha de nacimiento",client.optString("birthDate",""));EditText type=field("Tipo",client.optString("type",""));EditText number=field("Número de póliza / documento",client.optString("number",""));EditText expiry=field("Vencimiento",client.optString("expiry",client.optString("validityDate","")));EditText nationality=field("Nacionalidad",client.optString("nationality",""));EditText sex=field("Sexo",client.optString("sex",""));EditText birthPlace=field("Lugar de nacimiento",client.optString("birthPlace",""));
+        EditText[] fields=new EditText[]{holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace};for(EditText e:fields)form.addView(e,new LinearLayout.LayoutParams(-1,dp(54)));
         ScrollView scroll=new ScrollView(this);scroll.addView(form);
-        AlertDialog dialog=new AlertDialog.Builder(this)
-                .setTitle("Editar cliente")
-                .setView(scroll)
-                .setNegativeButton("Cancelar",null)
-                .setPositiveButton("Guardar",null)
-                .create();
-
-        dialog.setOnShowListener(ignored -> {
-            Button saveButton=dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            saveButton.setOnClickListener(v -> saveEditedClient(dialog,holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace));
-        });
-        dialog.show();
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Editar cliente").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",null).create();
+        dialog.setOnShowListener(ignored -> {Button saveButton=dialog.getButton(AlertDialog.BUTTON_POSITIVE);saveButton.setOnClickListener(v->saveEditedClient(dialog,holder,name,surname,identity,cif,phone,email,address,birth,type,number,expiry,nationality,sex,birthPlace));});dialog.show();
     }
 
-    private void saveEditedClient(AlertDialog dialog, EditText holder, EditText name, EditText surname,
-                                  EditText identity, EditText cif, EditText phone, EditText email,
-                                  EditText address, EditText birth, EditText type, EditText number,
-                                  EditText expiry, EditText nationality, EditText sex, EditText birthPlace){
-        try{
-            put(client,"holder",holder.getText().toString());
-            put(client,"name",name.getText().toString());
-            put(client,"surname",surname.getText().toString());
-            put(client,"identityNumber",identity.getText().toString());
-            put(client,"holderDni",identity.getText().toString());
-            put(client,"cif",cif.getText().toString());
-            put(client,"phone",phone.getText().toString());
-            put(client,"email",email.getText().toString());
-            put(client,"address",address.getText().toString());
-            put(client,"birthDate",birth.getText().toString());
-            put(client,"type",type.getText().toString());
-            put(client,"number",number.getText().toString());
-            put(client,"expiry",expiry.getText().toString());
-            put(client,"validityDate",expiry.getText().toString());
-            put(client,"nationality",nationality.getText().toString());
-            put(client,"sex",sex.getText().toString());
-            put(client,"birthPlace",birthPlace.getText().toString());
-            client.put("updatedAt",System.currentTimeMillis());
-            if(saveClient(client)){
-                dialog.dismiss();
-                show();
-                Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();
-            }else{
-                Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();
-            }
-        }catch(Exception e){
-            Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();
-        }
-    }
+    private void saveEditedClient(AlertDialog dialog, EditText holder, EditText name, EditText surname, EditText identity, EditText cif, EditText phone, EditText email, EditText address, EditText birth, EditText type, EditText number, EditText expiry, EditText nationality, EditText sex, EditText birthPlace){
+        try{put(client,"holder",holder.getText().toString());put(client,"name",name.getText().toString());put(client,"surname",surname.getText().toString());put(client,"identityNumber",identity.getText().toString());put(client,"holderDni",identity.getText().toString());put(client,"cif",cif.getText().toString());put(client,"phone",phone.getText().toString());put(client,"email",email.getText().toString());put(client,"address",address.getText().toString());put(client,"birthDate",birth.getText().toString());put(client,"type",type.getText().toString());put(client,"number",number.getText().toString());put(client,"expiry",expiry.getText().toString());put(client,"validityDate",expiry.getText().toString());put(client,"nationality",nationality.getText().toString());put(client,"sex",sex.getText().toString());put(client,"birthPlace",birthPlace.getText().toString());client.put("updatedAt",System.currentTimeMillis());if(saveClient(client)){dialog.dismiss();show();Toast.makeText(this,"✅ Datos del cliente guardados",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"No se encontró el cliente original",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"No se pudieron guardar los cambios",Toast.LENGTH_LONG).show();}}
 
     private void put(JSONObject o,String k,String v)throws Exception{String x=v==null?"":v.trim();if(x.isEmpty())o.remove(k);else o.put(k,x);}
-    private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}
-    catch(Exception e){return false;}}
+    private boolean saveClient(JSONObject edited){try{android.content.SharedPreferences prefs=getSharedPreferences("rgapro_local",MODE_PRIVATE);JSONArray a=new JSONArray(prefs.getString("policies","[]"));int best=-1,bestScore=0;for(int i=0;i<a.length();i++){JSONObject p=a.optJSONObject(i);if(p==null)continue;int score=0;score+=same(p,"identityNumber",edited.optString("identityNumber"),3);score+=same(p,"holderDni",edited.optString("holderDni"),3);score+=same(p,"number",edited.optString("number"),2);score+=same(p,"email",edited.optString("email"),2);score+=same(p,"phone",edited.optString("phone"),2);score+=same(p,"holder",edited.optString("holder"),1);score+=same(p,"createdAt",edited.optString("createdAt"),4);if(score>bestScore){bestScore=score;best=i;}}if(best<0)return false;a.put(best,edited);prefs.edit().putString("policies",a.toString()).apply();return true;}catch(Exception e){return false;}}
     private int same(JSONObject a,String key,String value,int weight){if(value==null||value.trim().isEmpty())return 0;String av=a.optString(key,"").trim();return av.equalsIgnoreCase(value.trim())?weight:0;}
 
     private void documentMenu(String path){new AlertDialog.Builder(this).setTitle("Documento").setItems(new String[]{"👁️ Abrir / ver","⬇️ Descargar","📤 Compartir"},(d,w)->{if(w==0)open(path);else if(w==1)download(path);else share(path);}).show();}
