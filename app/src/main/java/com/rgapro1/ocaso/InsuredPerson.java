@@ -8,13 +8,19 @@ public final class InsuredPerson {
     private final String birthDate;
     private final String identityNumber;
     private final String capital;
+    private final String accidentCapital;
     private final boolean holder;
 
     public InsuredPerson(String fullName, String birthDate, String identityNumber, String capital, boolean holder) {
+        this(fullName, birthDate, identityNumber, capital, "", holder);
+    }
+
+    public InsuredPerson(String fullName, String birthDate, String identityNumber, String capital, String accidentCapital, boolean holder) {
         this.fullName = clean(fullName);
         this.birthDate = clean(birthDate);
         this.identityNumber = normalizeId(identityNumber);
         this.capital = clean(capital);
+        this.accidentCapital = clean(accidentCapital);
         this.holder = holder;
     }
 
@@ -22,6 +28,7 @@ public final class InsuredPerson {
     public String getBirthDate() { return birthDate; }
     public String getIdentityNumber() { return identityNumber; }
     public String getCapital() { return capital; }
+    public String getAccidentCapital() { return accidentCapital; }
     public boolean isHolder() { return holder; }
 
     public static String normalizeId(String value) {
