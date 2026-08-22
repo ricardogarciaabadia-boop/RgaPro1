@@ -13,10 +13,29 @@ FIXED_TEXT = 'String text=raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n");
 
 def repair_generated_line(line):
     indent = line[:len(line) - len(line.lstrip())]
-    if re.search(r'String\s*\[\]\s*lines\s*=.*raw', line):
-        return indent + FIXED_ARRAY
-    if re.search(r'String\s+text\s*=.*raw', line):
-        return indent + FIXED_TEXT
+
+    # Replace only the malformed declaration, not the whole Java source line.
+    # Some generated methods are emitted as a single very long line; returning
+    # FIXED_TEXT/FIXED_ARRAY here used to discard the rest of parseOcr().
+    if re.search(r'String\s*\[\]\s*lines\s*=.*?raw', line):
+        line, count = re.subn(
+            r'String\s*\[\]\s*lines\s*=.*?\.split\("' + BS + r'\\n"\);',
+            FIXED_ARRAY,
+            line,
+            count=1,
+        )
+        if count:
+            return line
+
+    if re.search(r'String\s+text\s*=.*?raw', line):
+        line, count = re.subn(
+            r'String\s+text\s*=\s*raw\s*==\s*null\s*\?\s*""\s*:\s*raw\.replace\([^;]*\);',
+            FIXED_TEXT,
+            line,
+            count=1,
+        )
+        if count:
+            return line
 
     normalized = line
     for punctuation in '.:<>_%':
