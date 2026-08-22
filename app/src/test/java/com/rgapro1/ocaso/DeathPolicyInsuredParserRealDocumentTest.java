@@ -8,7 +8,7 @@ import org.junit.Test;
 
 public class DeathPolicyInsuredParserRealDocumentTest {
     @Test
-    public void parsesTheFiveInsuredRowsAndDeathCapitalFromLaterPage() {
+    public void parsesFiveInsuredRowsIncludingRowsWithoutPrintedDni() {
         String ocr = ""
                 + "POLIZA DE SEGURO DE OCASO DECESOS INTEGRAL\n"
                 + "Nº de Póliza 4064289\n"
@@ -21,17 +21,19 @@ public class DeathPolicyInsuredParserRealDocumentTest {
                 + "005 ALEJANDRI RODRIGUEZ RODRIGUEZ 30/05/2020 V 01/05/2024\n"
                 + "GARANTIAS Y COBERTURAS POR ASEGURADO\n"
                 + "TOTAL DECESOS: 3.631,55 3.631,55 3.631,55 3.631,55 3.631,55\n"
-                + "MUERTE CIRCULACION 5.000,00"
-                + "\n";
+                + "MUERTE CIRCULACION 5.000,00\n";
 
         List<InsuredPerson> people = DeathPolicyInsuredParser.parse(ocr, "48920227D", "CRISTINA RODRIGUEZ JIMENEZ");
 
-        assertEquals(3, people.size());
+        assertEquals(5, people.size());
         assertEquals("CRISTINA RODRIGUEZ JIMENEZ", people.get(0).getFullName());
         assertEquals("48920227D", people.get(0).getIdentityNumber());
         assertEquals("3.631,55", people.get(0).getCapital());
         assertEquals("5.000,00", people.get(0).getAccidentCapital());
         assertTrue(people.get(0).isHolder());
-        assertEquals("3.631,55", people.get(1).getCapital());
+        assertEquals("ANGELES GIMENEZ CANTERO", people.get(1).getFullName());
+        assertEquals("27906367F", people.get(1).getIdentityNumber());
+        assertEquals("3.631,55", people.get(4).getCapital());
+        assertEquals("", people.get(4).getIdentityNumber());
     }
 }
