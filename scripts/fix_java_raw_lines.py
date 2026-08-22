@@ -11,36 +11,44 @@ fixed_text = "String text=raw==null?\"\":raw.replace('\\r','\\n');"
 
 
 def normalize_java_escapes(line):
-    """Remove accidental Markdown-style backslash escapes without breaking regex dots."""
+    """Remove accidental Markdown escapes while preserving real Java string escapes."""
     out = []
     i = 0
     in_string = False
     in_char = False
-    escaped = False
     while i < len(line):
         c = line[i]
-        if escaped:
-            out.append(c)
-            escaped = False
-            i += 1
-            continue
         if c == '\\':
             j = i
             while j < len(line) and line[j] == '\\':
                 j += 1
             run = line[i:j]
             nxt = line[j] if j < len(line) else ''
-            # Outside literals, a backslash before Java punctuation is always malformed.
-            # Inside literals, Markdown-style escapes such as \\_ are malformed too,
-            # but \\. is commonly a legitimate regex escape and must be preserved.
+
+            # Markdown-style punctuation escaping is never valid Java syntax.
+            # A dot inside a Java string is the exception: \\. is commonly a
+            # legitimate regex escape and must remain intact.
             punctuation = ':<>_%.,'
             if nxt in punctuation and (nxt != '.' or not in_string):
                 out.append(nxt)
                 i = j + 1
                 continue
+
             out.append(run)
+            # A quote following an odd number of backslashes is escaped and does
+            # not terminate the Java literal. Even runs leave the quote unescaped.
+            if nxt in ('"', "'"):
+                if nxt == '"' and in_string and len(run) % 2 == 1:
+                    out.append(nxt)
+                    i = j + 1
+                    continue
+                if nxt == "'" and in_char and len(run) % 2 == 1:
+                    out.append(nxt)
+                    i = j + 1
+                    continue
             i = j
             continue
+
         out.append(c)
         if c == '"' and not in_char:
             in_string = not in_string
