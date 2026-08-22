@@ -70,7 +70,7 @@ jobs:
         run: python3 scripts/fix_cliente360_state.py
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
-      - name: Compilar APK Debug
+      - name: Compilar APK Debug (prueba final)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generado
         run: |
