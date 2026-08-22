@@ -13,21 +13,18 @@ for i, line in enumerate(lines):
     indent = line[:len(line) - len(line.lstrip())]
     stripped = line.strip()
 
-    # Some earlier patch scripts have escaped Java punctuation (for example
-    # `\\:`, `\\.` and `\\<`). Those backslashes are not valid Java syntax.
-    # The application-user refresh lambda is generated as one long line, so
-    # normalize escaped punctuation there before javac sees it.
-    if 'refresh[0]=()->' in line:
-        normalized = re.sub(r'\\([:<>.])', r'\1', line)
-        if normalized != line:
-            lines[i] = normalized
-            line = normalized
-            stripped = line.strip()
-            indent = line[:len(line) - len(line.lstrip())]
-            changed = True
+    # Normalize Markdown-style escapes accidentally emitted into Java source.
+    normalized = (line.replace('\\:', ':')
+                       .replace('\\.', '.')
+                       .replace('\\<', '<')
+                       .replace('\\>', '>'))
+    if normalized != line:
+        lines[i] = normalized
+        line = normalized
+        stripped = line.strip()
+        indent = line[:len(line) - len(line.lstrip())]
+        changed = True
 
-    # Match the whole generated raw-array statement instead of relying on an
-    # exact spelling from an earlier patch.
     if 'String[] lines=' in line and 'raw' in line and 'replace' in line and '.split' in line:
         if lines[i] != indent + fixed_array:
             lines[i] = indent + fixed_array
