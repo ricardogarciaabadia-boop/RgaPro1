@@ -68,6 +68,8 @@ jobs:
         run: python3 scripts/fix_cliente360_compile.py
       - name: Corregir estado de Cliente 360
         run: python3 scripts/fix_cliente360_state.py
+      - name: Aplicar branding RgaPro DESPUÉS de todos los parches
+        run: python3 scripts/patch_branding_final.py
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
       - name: Compilar APK Debug (prueba final)
