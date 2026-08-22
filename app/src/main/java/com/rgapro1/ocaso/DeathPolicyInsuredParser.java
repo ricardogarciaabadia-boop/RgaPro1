@@ -18,6 +18,15 @@ public final class DeathPolicyInsuredParser {
     private DeathPolicyInsuredParser() {}
 
     public static List<InsuredPerson> parse(String ocrText, String holderDni, String holderName) {
+        return parse(ocrText, holderDni, holderName, "");
+    }
+
+    /**
+     * Parses a death policy and applies the insurer's under-14 DNI rule when
+     * the policy start date is available. Missing DNI is retained as data,
+     * never fabricated from OCR or inferred from another person's identity.
+     */
+    public static List<InsuredPerson> parse(String ocrText, String holderDni, String holderName, String policyStartDate) {
         if (ocrText == null || ocrText.trim().isEmpty()) return Collections.emptyList();
         String text = ocrText.replace('\r', '\n');
         String upper = text.toUpperCase(Locale.ROOT);
@@ -45,7 +54,13 @@ public final class DeathPolicyInsuredParser {
             boolean holder = sameId(id, holderDni) || sameName(name, holderName);
             addUnique(result, new InsuredPerson(name, birthDate, id, capital, holder));
         }
-        return applyPolicyCapitals(result, upper);
+        List<InsuredPerson> withCapitals = applyPolicyCapitals(result, upper);
+        if (policyStartDate == null || policyStartDate.trim().isEmpty()) return withCapitals;
+        List<InsuredPerson> classified = new ArrayList<>();
+        for (InsuredPerson person : withCapitals) {
+            classified.add(person.withMinorIdentityStatus(policyStartDate));
+        }
+        return classified;
     }
 
     private static List<InsuredPerson> applyPolicyCapitals(List<InsuredPerson> people, String upper) {
@@ -57,7 +72,8 @@ public final class DeathPolicyInsuredParser {
             InsuredPerson p = people.get(i);
             String death = p.getCapital().isEmpty() ? deathCapital : p.getCapital();
             String accident = p.getAccidentCapital().isEmpty() && i == 0 ? accidentCapital : p.getAccidentCapital();
-            out.add(new InsuredPerson(p.getFullName(), p.getBirthDate(), p.getIdentityNumber(), death, accident, p.isHolder()));
+            out.add(new InsuredPerson(p.getFullName(), p.getBirthDate(), p.getIdentityNumber(), death, accident,
+                    p.isHolder(), p.getIdentityStatus()));
         }
         return out;
     }
