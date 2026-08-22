@@ -8,8 +8,8 @@ changed = False
 
 BS = chr(92)
 # Keep the generated normalization variable unique. Several generated helpers
-# already use `text`; using a stable, method-local name avoids a class/member
-# collision when the upstream patch leaves the declaration at class scope.
+# already use `text`; using a stable name avoids a collision when generated
+# code is assembled into the same Java scope.
 FIXED_ARRAY = 'String[] lines=(raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n")).split("' + BS + 'n");'
 FIXED_TEXT = 'String normalizedText=raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n");'
 
@@ -20,7 +20,7 @@ def repair_generated_line(line):
     # FIXED_TEXT/FIXED_ARRAY here used to discard the rest of parseOcr().
     if re.search(r'String\s*\[\]\s*lines\s*=.*?raw', line):
         line, count = re.subn(
-            r'String\s*\[\]\s*lines\s*=.*?\.split\("' + BS + r'\\n"\);',
+            r'String\s*\[\]\s*lines\s*=\s*.*?\.split\("' + BS + r'\\n"\);',
             FIXED_ARRAY,
             line,
             count=1,
@@ -29,14 +29,16 @@ def repair_generated_line(line):
             return line
 
     if re.search(r'String\s+text\s*=.*?raw', line):
-        line, count = re.subn(
-            r'String\s+text\s*=\s*raw\s*==\s*null\s*\?\s*""\s*:\s*raw\.replace\([^;]*\);',
-            FIXED_TEXT,
+        match = re.search(
+            r'(String\s+)text(\s*=\s*raw\s*==\s*null\s*\?\s*""\s*:\s*raw\.replace\([^;]*\);)(.*)$',
             line,
-            count=1,
         )
-        if count:
-            return line
+        if match:
+            # The declaration is renamed, and only the code following that
+            # declaration is updated. This avoids changing string literals or
+            # unrelated identifiers while keeping same-line generated code valid.
+            suffix = re.sub(r'\btext\b', 'normalizedText', match.group(3))
+            return line[:match.start()] + FIXED_TEXT + suffix
 
     normalized = line
     for punctuation in '.:<>_%':
