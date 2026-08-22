@@ -7,13 +7,14 @@ lines = s.splitlines()
 changed = False
 
 BS = chr(92)
+# Keep the generated normalization variable unique. Several generated helpers
+# already use `text`; using a stable, method-local name avoids a class/member
+# collision when the upstream patch leaves the declaration at class scope.
 FIXED_ARRAY = 'String[] lines=(raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n")).split("' + BS + 'n");'
-FIXED_TEXT = 'String text=raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n");'
+FIXED_TEXT = 'String normalizedText=raw==null?"":raw.replace("' + BS + 'r","' + BS + 'n");'
 
 
 def repair_generated_line(line):
-    indent = line[:len(line) - len(line.lstrip())]
-
     # Replace only the malformed declaration, not the whole Java source line.
     # Some generated methods are emitted as a single very long line; returning
     # FIXED_TEXT/FIXED_ARRAY here used to discard the rest of parseOcr().
