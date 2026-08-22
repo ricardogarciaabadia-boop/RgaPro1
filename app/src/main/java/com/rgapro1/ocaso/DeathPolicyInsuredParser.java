@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 /** Extracts insured rows and policy-level capital data from death/funeral policy OCR. */
 public final class DeathPolicyInsuredParser {
     private static final Pattern ID = Pattern.compile("(?<![A-Z0-9])(?:[0-9]{8}[A-Z]|[XYZ][0-9]{7}[A-Z])(?![A-Z0-9])", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ROW = Pattern.compile("^\\s*\\d{1,3}\\s+(.+)$");
     private static final Pattern DATE = Pattern.compile("\\b\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}\\b");
     private static final Pattern MONEY = Pattern.compile("(?:€|EUR)?\\s*(?:\\d{1,3}(?:[.\\s]\\d{3})+|\\d{4,})(?:,\\d{1,2})?\\s*(?:€|EUR)", Pattern.CASE_INSENSITIVE);
     private static final Pattern MONEY_NO_SYMBOL = Pattern.compile("\\b(?:\\d{1,3}(?:[.]\\d{3})+|\\d{4,})(?:,\\d{1,2})?\\b");
@@ -29,10 +30,11 @@ public final class DeathPolicyInsuredParser {
             String line = normalize(lines[i]);
             if (line.isEmpty() || looksLikeHeader(line)) continue;
             Matcher idMatcher = ID.matcher(line);
-            if (!idMatcher.find()) continue;
-            String id = InsuredPerson.normalizeId(idMatcher.group());
-            String beforeId = normalize(line.substring(0, idMatcher.start()));
-            String afterId = normalize(line.substring(idMatcher.end()));
+            String id = idMatcher.find() ? InsuredPerson.normalizeId(idMatcher.group()) : "";
+            Matcher rowMatcher = ROW.matcher(line);
+            if (id.isEmpty() && !rowMatcher.matches()) continue;
+            String beforeId = id.isEmpty() ? "" : normalize(line.substring(0, idMatcher.start()));
+            String afterId = id.isEmpty() ? rowMatcher.group(1) : normalize(line.substring(idMatcher.end()));
             String name = extractName(beforeId);
             if (name.isEmpty()) name = extractName(afterId);
             String birthDate = extractDate(line);
@@ -46,34 +48,28 @@ public final class DeathPolicyInsuredParser {
         return applyPolicyCapitals(result, upper);
     }
 
-    /** The death coverage table may be on a later page, without repeating each DNI. */
     private static List<InsuredPerson> applyPolicyCapitals(List<InsuredPerson> people, String upper) {
         if (people.isEmpty()) return people;
         String deathCapital = labelledCapital(upper, "TOTAL DECESOS", "DECESOS", "DECESOS NIVELADA");
         String accidentCapital = labelledCapital(upper, "MUERTE POR ACCIDENTE", "MUERTE CIRCULACIÓN", "MUERTE CIRCULACION");
         List<InsuredPerson> out = new ArrayList<>();
-        for (InsuredPerson p : people) {
+        for (int i = 0; i < people.size(); i++) {
+            InsuredPerson p = people.get(i);
             String death = p.getCapital().isEmpty() ? deathCapital : p.getCapital();
-            String accident = p.getAccidentCapital().isEmpty() ? accidentCapitalForFirst(p, people, accidentCapital) : p.getAccidentCapital();
+            String accident = p.getAccidentCapital().isEmpty() && i == 0 ? accidentCapital : p.getAccidentCapital();
             out.add(new InsuredPerson(p.getFullName(), p.getBirthDate(), p.getIdentityNumber(), death, accident, p.isHolder()));
         }
         return out;
     }
 
-    private static String accidentCapitalForFirst(InsuredPerson p, List<InsuredPerson> people, String capital) {
-        return !capital.isEmpty() && p == people.get(0) ? capital : "";
-    }
-
     private static String labelledCapital(String text, String... labels) {
         for (String label : labels) {
-            Pattern p = Pattern.compile(Pattern.quote(label) + "[^\\n]{0,80}", Pattern.CASE_INSENSITIVE);
+            Pattern p = Pattern.compile(Pattern.quote(label) + "[^\\n]{0,100}", Pattern.CASE_INSENSITIVE);
             Matcher m = p.matcher(text);
             if (m.find()) {
                 String line = m.group();
-                Matcher money = MONEY.matcher(line);
-                if (money.find()) return money.group().trim();
-                Matcher bare = MONEY_NO_SYMBOL.matcher(line);
-                if (bare.find()) return bare.group().trim();
+                Matcher money = MONEY.matcher(line); if (money.find()) return money.group().trim();
+                Matcher bare = MONEY_NO_SYMBOL.matcher(line); if (bare.find()) return bare.group().trim();
             }
         }
         return "";
@@ -95,6 +91,7 @@ public final class DeathPolicyInsuredParser {
         String x = value.replaceAll("(?i)^(ASEGURADO|ASEGURADA|TITULAR|TOMADOR)\\s*[:.-]?\\s*", "").trim();
         x = x.replaceAll("(?i)\\b(?:FECHA|NACIMIENTO|CAPITAL|CAPITALES|DNI|NIF)\\b.*$", "").trim();
         x = x.replaceFirst("^\\d{1,3}\\s+", "").trim();
+        x = x.replaceFirst("^(?:[XYZ]?[0-9]{7,8}[A-Z])\\s+", "").trim();
         if (x.length() < 5 || !x.matches(".*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ].*")) return "";
         return x.replaceAll("\\s+", " ");
     }
