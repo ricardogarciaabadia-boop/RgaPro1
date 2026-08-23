@@ -41,8 +41,8 @@ jobs:
         run: |
           python3 tools/apply_inicio_search_alarms.py
           python3 tools/apply_native_alarms.py
-      # Build includes global search, upcoming expiries and native 60/40/30/7/1 alarms.
-      # Trigger marker: current main APK build.
+      - name: Aplicar correcciones finales de OCR y branding
+        run: python3 tools/fix_final_ui.py
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generada
