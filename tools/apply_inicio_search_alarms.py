@@ -4,7 +4,6 @@ import re
 p = Path('app/src/main/assets/prototype/index.html')
 s = p.read_text(encoding='utf-8')
 
-# Home dashboard: global search + upcoming expiries + alarm thresholds.
 start = s.index('<section id="home"')
 end = s.index('<section id="policy"', start)
 home = '''<section id="home" class="screen active">
@@ -28,7 +27,6 @@ home = '''<section id="home" class="screen active">
 '''
 s = s[:start] + home + s[end:]
 
-# Styling for the new dashboard.
 css_anchor = '.footer{text-align:center;color:var(--muted);font-size:11px;padding:10px 0 30px}'
 css_insert = '''
 .search-title{font-size:20px;font-weight:950;margin:5px 0 3px}.search-sub{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:11px}.global-search{width:100%;border:2px solid var(--line);border-radius:13px;padding:13px 14px;font-size:16px;outline:none;background:#fff}.global-search:focus{border-color:var(--blue)}.search-results{margin-top:10px}.search-result{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:#fff;border-radius:13px;padding:11px;text-align:left;margin:7px 0;cursor:pointer}.search-result .sr-main{font-weight:900}.search-result .sr-meta{font-size:11px;color:var(--muted);margin-top:3px}.search-empty{font-size:13px;color:var(--muted);padding:8px 2px}.expiry-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px 14px;margin-bottom:9px;cursor:pointer}.expiry-card.urgent{border-color:#f0b0b0;background:#fff8f8}.expiry-card .ec-top{display:flex;justify-content:space-between;gap:10px}.expiry-card .ec-name{font-weight:900}.expiry-card .ec-days{font-weight:950;color:var(--blue2);white-space:nowrap}.expiry-card.urgent .ec-days{color:#b42318}.expiry-card .ec-meta{font-size:12px;color:var(--muted);margin-top:4px}.expiry-card .ec-alarm{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:999px;background:#eaf3ff;color:#124f9d;font-size:10px;font-weight:900}.alarm-card{background:linear-gradient(135deg,#071b3a,#0b3f8d);color:#fff;border:0}.alarm-card .eyebrow{color:#91c8ff}.alarm-title{font-size:23px;font-weight:950;margin:6px 0}.alarm-sub{font-size:12px;color:#d7e4f5;line-height:1.45}
@@ -36,11 +34,9 @@ css_insert = '''
 if css_anchor in s and '.global-search' not in s:
     s = s.replace(css_anchor, css_anchor + css_insert)
 
-# Keep the latest OCR payload available to the save action.
 if 'let currentOcrData=null;' not in s:
     s = s.replace('<script>\n', '<script>\nlet currentOcrData=null;\n', 1)
 
-# Add persistence/search/dashboard helpers before the existing show().
 anchor = 'function show(id){'
 helpers = r'''function storedRecords(){try{return JSON.parse(localStorage.getItem('rgapro_records')||'[]')}catch(e){return[]}}
 function saveStoredRecord(r){const a=storedRecords();const id=r.id||('r_'+Date.now());r.id=id;const same=a.findIndex(x=>x.id===id);if(same>=0)a[same]=r;else a.push(r);localStorage.setItem('rgapro_records',JSON.stringify(a));return r}
@@ -61,29 +57,21 @@ function normalizeExpiry(v){const d=parseDateValue(v);if(!d)return '';const dd=S
 if 'function storedRecords()' not in s:
     s = s.replace(anchor, helpers + anchor, 1)
 
-# Capture OCR data in setOcrResult.
-s = s.replace('const d=typeof data===\'string\'?JSON.parse(data):data;', 'const d=typeof data===\'string\'?JSON.parse(data):data;currentOcrData=d;', 1)
+s = s.replace("const d=typeof data==='string'?JSON.parse(data):data;", "const d=typeof data==='string'?JSON.parse(data):data;currentOcrData=d;", 1)
 
-# Replace the old no-op validateSave with persistence + native alarm scheduling.
-old = "function validateSave(){if(!document.getElementById('reverseBtn').disabled&&!document.getElementById('step').textContent.indexOf('revisa')<0){alert('Toma primero el reverso del DNI/NIE para completar la MRZ.');return}alert('Revisa los campos y confirma manualmente antes de guardar.')}"
-if old not in s:
-    old = "function validateSave(){if(!document.getElementById('reverseBtn').disabled&&document.getElementById('step').textContent.indexOf('revisa')<0){alert('Toma primero el reverso del DNI/NIE para completar la MRZ.');return}alert('Revisa los campos y confirma manualmente antes de guardar.')}"
-new = r'''function validateSave(){
+new_validate = r'''function validateSave(){
 const step=document.getElementById('step').textContent;if(!document.getElementById('reverseBtn').disabled&&step.indexOf('revisa')<0){alert('Toma primero el reverso del DNI/NIE para completar la MRZ.');return}
 const fields=[...document.querySelectorAll('#ocr .field')];const vals={};fields.forEach(f=>{const k=f.querySelector('label').textContent.trim();vals[k]=f.querySelector('input').value.trim()});
 const expiry=normalizeExpiry(vals['Fecha de caducidad']);const record={id:(currentOcrData&&currentOcrData.documentNumber&&currentOcrData.documentNumber!=='No detectado')?currentOcrData.documentNumber:('ocr_'+Date.now()),holder:vals['Nombre y apellidos'],name:vals['Nombre y apellidos'],identityNumber:vals['Nº documento'],expiry:expiry,number:'',type:'Documento / cliente',raw:currentOcrData&&currentOcrData.raw||'',phone:'',address:'',email:'',savedAt:Date.now()};
 saveStoredRecord(record);if(window.RgaProCamera&&expiry){try{RgaProCamera.scheduleExpiry(JSON.stringify(record))}catch(e){console.log(e)}}
 alert('Guardado correctamente. Las alarmas quedan configuradas para 60, 40, 30, 7 y 1 día antes.');show('home');refreshHome()}
 '''
-if old in s:
-    s = s.replace(old,new,1)
-else:
-    raise SystemExit('validateSave anchor not found')
+# add_edit_buttons.py modifies this function, so replace the whole function body regardless of its current wording.
+s, count = re.subn(r'function validateSave\(\)\{.*?\}\s*</script>', new_validate + '</script>', s, count=1, flags=re.S)
+if count != 1:
+    raise SystemExit('validateSave function not found')
 
-# Render the new dashboard whenever Inicio is shown.
-s = s.replace("function show(id){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));", "function show(id){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));",1)
-show_end = "scrollTo(0,0)}"
 if "if(id==='home')refreshHome();" not in s:
-    s = s.replace(show_end, "if(id==='home')refreshHome();scrollTo(0,0)}", 1)
+    s = s.replace('scrollTo(0,0)}', "if(id==='home')refreshHome();scrollTo(0,0)}", 1)
 
 p.write_text(s, encoding='utf-8')
