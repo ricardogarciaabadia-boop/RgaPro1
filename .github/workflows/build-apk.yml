@@ -37,6 +37,10 @@ jobs:
           python3 tools/fix_ocr_post.py
       - name: Aplicar edición manual del OCR
         run: python3 tools/add_edit_buttons.py
+      - name: Aplicar Inicio, búsqueda y alarmas
+        run: |
+          python3 tools/apply_inicio_search_alarms.py
+          python3 tools/apply_native_alarms.py
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generada
