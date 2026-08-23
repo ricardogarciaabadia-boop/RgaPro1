@@ -80,6 +80,10 @@ jobs:
         run: python3 scripts/patch_branding_final.py
       - name: Reparar líneas Java generadas por parches OCR
         run: python3 scripts/fix_java_raw_lines.py
+      - name: Aplicar Inicio, búsqueda y alarmas
+        run: |
+          python3 tools/apply_inicio_search_alarms.py
+          python3 tools/apply_native_alarms.py
 
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
