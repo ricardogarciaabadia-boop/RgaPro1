@@ -1,6 +1,9 @@
 name: Crear APK
 
 on:
+  push:
+    branches:
+      - audit/architecture-hardening
   workflow_dispatch:
 
 permissions:
