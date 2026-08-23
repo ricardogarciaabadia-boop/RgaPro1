@@ -57,6 +57,7 @@ p.write_text(s,encoding='utf-8')
 # Receiver: accept direct records from the WebView even though they are not in the legacy users_json store.
 p = Path('app/src/main/java/com/rgapro1/ocaso/ExpiryNotificationReceiver.java')
 s = p.read_text(encoding='utf-8')
+s = s.replace('Intent open = new Intent(context, MainActivity.class);','Intent open = new Intent(context, PrototypeActivity.class);')
 old = '        JSONObject policy = findPolicy(context, user, policyId);\n        if (policy == null) return;\n        showNotification(context, user, policy, days);\n        ExpiryAlarmScheduler.schedulePolicy(context, user, policy);'
 new = '''        JSONObject policy = findPolicy(context, user, policyId);
         boolean direct = policy == null && "local".equals(user);
