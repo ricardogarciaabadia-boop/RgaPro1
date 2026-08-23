@@ -66,8 +66,7 @@ const expiry=normalizeExpiry(vals['Fecha de caducidad']);const record={id:(curre
 saveStoredRecord(record);if(window.RgaProCamera&&expiry){try{RgaProCamera.scheduleExpiry(JSON.stringify(record))}catch(e){console.log(e)}}
 alert('Guardado correctamente. Las alarmas quedan configuradas para 60, 40, 30, 7 y 1 día antes.');show('home');refreshHome()}
 '''
-# add_edit_buttons.py modifies this function, so replace the whole function body regardless of its current wording.
-s, count = re.subn(r'function validateSave\(\)\{.*?\}\s*</script>', new_validate + '</script>', s, count=1, flags=re.S)
+s, count = re.subn(r'function validateSave\(\)\{.*?\}\s*</script>', new_validate + 'refreshHome();\n</script>', s, count=1, flags=re.S)
 if count != 1:
     raise SystemExit('validateSave function not found')
 
