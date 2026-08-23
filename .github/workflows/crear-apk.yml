@@ -80,6 +80,8 @@ jobs:
         run: python3 scripts/patch_branding_final.py
       - name: Reparar líneas Java generadas por parches OCR
         run: python3 scripts/fix_java_raw_lines.py
+      - name: Corregir OCR de pólizas y evitar fragmentos de etiquetas
+        run: python3 scripts/patch_ocr_policy_parser_v2.py
 
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
