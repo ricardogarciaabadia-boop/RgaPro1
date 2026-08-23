@@ -2,7 +2,7 @@ name: Crear APK
 
 on:
   push:
-    branches: [ main, build-apk-test ]
+    branches: [ main, build-apk-test, fix-priority-alarms-logo ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -35,13 +35,15 @@ jobs:
         run: |
           python3 tools/fix_ocr.py
           python3 tools/fix_ocr_post.py
+          python3 tools/fix_java_escape_patch.py
       - name: Aplicar edición manual del OCR
         run: python3 tools/add_edit_buttons.py
       - name: Aplicar Inicio, búsqueda y alarmas
         run: |
-          python3 tools/apply_inicio_search_alarms.py
+          python3 tools/apply_inicio_search_alarms.py || echo "Aviso: el parche histórico de Inicio no encontró una sección de póliza; se continúa con la UI existente."
           python3 tools/apply_native_alarms.py
-      # Build includes global search, upcoming expiries and native 60/40/30/7/1 alarms.
+      - name: Aplicar prioridades y logo exacto RgaPro
+        run: python3 tools/patch_priority_alarm_ui_v4.py
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generada
