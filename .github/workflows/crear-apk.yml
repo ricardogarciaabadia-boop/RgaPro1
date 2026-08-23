@@ -82,6 +82,8 @@ jobs:
         run: python3 scripts/fix_java_raw_lines.py
       - name: Corregir OCR de pólizas y evitar fragmentos de etiquetas
         run: python3 scripts/patch_ocr_policy_parser_v2.py
+      - name: Separar definitivamente OCR DNI, póliza y JPG/PDF y bloquear sesión
+        run: python3 scripts/patch_ocr_workflows_security_branding_v3.py
 
       - name: Limpiar proyecto
         run: gradle clean --no-daemon
