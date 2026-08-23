@@ -35,6 +35,7 @@ jobs:
         run: |
           python3 tools/fix_ocr.py
           python3 tools/fix_ocr_post.py
+          python3 tools/fix_java_escape_patch.py
       - name: Aplicar edición manual del OCR
         run: python3 tools/add_edit_buttons.py
       - name: Aplicar Inicio, búsqueda y alarmas
