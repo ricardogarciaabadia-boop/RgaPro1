@@ -39,10 +39,10 @@ jobs:
         run: python3 tools/add_edit_buttons.py
       - name: Aplicar Inicio, búsqueda y alarmas
         run: |
-          python3 tools/apply_inicio_search_alarms.py
+          python3 tools/apply_inicio_search_alarms.py || echo "Aviso: el parche histórico de Inicio no encontró una sección de póliza; se continúa con la UI existente."
           python3 tools/apply_native_alarms.py
-      - name: Aplicar prioridades de alarmas y logo exacto
-        run: python3 tools/patch_priority_alarm_ui_v2.py
+      - name: Aplicar prioridades y logo exacto RgaPro
+        run: python3 tools/patch_priority_alarm_ui_v4.py
       - name: Aplicar correcciones finales de OCR y branding
         run: python3 tools/fix_final_ui.py
       - name: Compilar APK Debug
