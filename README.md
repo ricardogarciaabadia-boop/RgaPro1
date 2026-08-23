@@ -1,17 +1,7 @@
-# Mi cartera Ocaso — proyecto Android privado
+# RgaPro — versión de prueba 1.7
 
-Proyecto Android preparado para generar un APK privado.
+Base Android para pruebas privadas.
 
-Características base:
-- APK sin publicar en Google Play.
-- Pantalla única del prototipo.
-- Acceso biométrico del sistema Android.
-- Cámara/documentos con OCR y asociación de documentos a un único cliente.
-- Cliente 360º con edición, productos y documentación.
-- Sincronización con servidor privado pendiente de configurar.
+Esta versión integra la pantalla real del prototipo con búsqueda global, clientes ordenados, fichas editables, pólizas desplegables, asegurados de decesos, OCR DNI/NIE con anverso y reverso, lectura de PDF y prioridades de vencimiento 60/40/30/7/1 días.
 
-## Importante
-La compilación del APK se realiza mediante GitHub Actions.
-
-## Versión final en preparación
-Incluye mejoras de gestión de clientes, documentos, edición y asociación.
+La compilación de APK se realiza mediante GitHub Actions.
