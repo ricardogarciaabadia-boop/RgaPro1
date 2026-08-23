@@ -62,11 +62,13 @@ old = '        JSONObject policy = findPolicy(context, user, policyId);\n       
 new = '''        JSONObject policy = findPolicy(context, user, policyId);
         boolean direct = policy == null && "local".equals(user);
         if (direct) {
-            policy = new JSONObject();
-            policy.put("holder", intent.getStringExtra("holder"));
-            policy.put("number", intent.getStringExtra("number"));
-            policy.put("type", intent.getStringExtra("type"));
-            policy.put("id", policyId);
+            try {
+                policy = new JSONObject();
+                policy.put("holder", intent.getStringExtra("holder"));
+                policy.put("number", intent.getStringExtra("number"));
+                policy.put("type", intent.getStringExtra("type"));
+                policy.put("id", policyId);
+            } catch (Exception ignored) { return; }
         }
         if (policy == null) return;
         showNotification(context, user, policy, days);
