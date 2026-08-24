@@ -1,5 +1,31 @@
-ZnJvbSBwYXRobGliIGltcG9ydCBQYXRo
+from pathlib import Path
 
-IyBQYXJjaGUgZ3JhY2VmdWxvOiBzaSBsYSBwYW50YWxsYSBkZSBjbGllbnRlIG5vIGV4aXN0ZSwgZWwgYnVpbGQgbm8gZmFsbGEu
+# Parche seguro:
+# Si no existe Cliente360Activity.java, el build continúa sin fallar.
 
-ZGVmIG1haW4oKToKICAgIHBhdGhzID0gWwogICAgICAgIFBhdGgoImFwcC9zcmMvbWFpbi9qYXZhL2NvbS9yZ2Fwcm8xL29jYXNvL01haW5BY3Rpdml0eS5qYXZhIiwKICAgICAgICBQYXRoKCJhcHAvc3JjL21haW4vamF2YS9jb20vcmdhcHJvMS9vY2Fzby9DbGllbnQzNjBBY3Rpdml0eS5qYXZhIiwKICAgIF0KICAgIGZvdW5kID0gRmFsc2UKICAgIGZvciBwIGluIHBhdGhzOgogICAgICAgIGlmIHAuZXhpc3RzKCk6CiAgICAgICAgICAgIGZvdW5kID0gVHJ1ZQogICAgICAgICAgICBicmVhawogICAgaWYgZm91bmQ6CiAgICAgICAgcHJpbnQoIkZpbGVzIGRlIGNsaWVudGUgZW5jb250cmFkb3MuIFNlIGNvbnRpbnVhIHNpbiBwYXJjaGUuIikKICAgIGVsc2U6CiAgICAgICAgcHJpbnQoIk5vIGhheSBmaWNoZXJvIGRlIGNsaWVudGUgZGlzcG9uaWJsZS4gU2UgY29udGludWEgc2luIHBhcmNoZS4iKQogICAgcmV0dXJuCgpJZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigpCg==
+def main():
+    paths = [
+        Path("app/src/main/java/com/rgapro1/ocaso/MainActivity.java"),
+        Path("app/src/main/java/com/rgapro1/ocaso/Cliente360Activity.java"),
+    ]
+
+    found = False
+
+    for p in paths:
+        if p.exists():
+            found = True
+            break
+
+    if found:
+        print("Archivo cliente encontrado. Se continúa sin aplicar parche.")
+    else:
+        print("No se encontró Cliente360Activity.java. Se continúa sin aplicar parche.")
+
+    return
+
+
+if __name__ == "__main__":
+    main()
+
+
+
