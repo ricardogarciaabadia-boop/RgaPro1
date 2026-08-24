@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Parche seguro para Cliente final.
-# No falla si los archivos esperados no existen.
+# No modifica archivos y nunca rompe el build si cambia la estructura.
 
 def main():
     posibles = [
@@ -10,20 +10,16 @@ def main():
         Path("app/src/main/java/com/rgapro1/ocaso/ui/Cliente360Activity.java"),
     ]
 
-    encontrados = []
-
-    for archivo in posibles:
-        if archivo.exists():
-            encontrados.append(str(archivo))
+    encontrados = [str(p) for p in posibles if p.exists()]
 
     if encontrados:
         print("Archivos encontrados:")
         for archivo in encontrados:
             print(f"- {archivo}")
-        print("Se continúa sin aplicar parche Cliente final.")
     else:
-        print("No se encontró Cliente360Activity.java ni rutas compatibles.")
-        print("Se continúa sin aplicar parche Cliente final.")
+        print("No se encontraron archivos Cliente compatibles.")
+
+    print("Parche Cliente final omitido. Se continúa con el build.")
 
 
 if __name__ == "__main__":
