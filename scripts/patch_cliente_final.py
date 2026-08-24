@@ -25,5 +25,6 @@ def main():
         print("No se encontró Cliente360Activity.java ni rutas compatibles.")
         print("Se continúa sin aplicar parche Cliente final.")
 
+
 if __name__ == "__main__":
     main()
