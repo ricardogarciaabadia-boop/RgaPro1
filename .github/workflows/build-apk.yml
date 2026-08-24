@@ -52,9 +52,6 @@ jobs:
       - name: Aplicar patrones de pólizas reales aportadas
         run: python3 scripts/patch_policy_examples_v2.py
 
-      - name: Corregir escapes Java del parser de pólizas
-        run: python3 scripts/patch_policy_examples_v3.py
-
       - name: Mejorar decesos: asegurados, capitales y vínculos
         run: python3 scripts/patch_policy_advanced.py
 
@@ -69,6 +66,20 @@ jobs:
 
       - name: Recuperar acceso y reinicio de seguridad
         run: python3 scripts/patch_auth_reset_visible.py
+
+      - name: Verificar scripts Python
+        run: |
+          python3 -m py_compile scripts/patch_final_v20.py
+          python3 -m py_compile scripts/patch_import_reference_ocr.py
+          python3 -m py_compile scripts/patch_ocr_input_modes.py
+          python3 -m py_compile scripts/patch_dni_fields_only.py
+          python3 -m py_compile scripts/patch_policy_ocr_improved.py
+          python3 -m py_compile scripts/patch_policy_examples_v2.py
+          python3 -m py_compile scripts/patch_policy_advanced.py
+          python3 -m py_compile scripts/patch_policy_capital_link.py
+          python3 -m py_compile scripts/patch_policy_advanced_fix.py
+          python3 -m py_compile scripts/patch_security_logo_reset_v4.py
+          python3 -m py_compile scripts/patch_auth_reset_visible.py
 
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
