@@ -42,6 +42,9 @@ jobs:
       - name: Separar cámara DNI y documentos multipágina
         run: python3 scripts/patch_ocr_input_modes.py
 
+      - name: Mejorar OCR de pólizas
+        run: python3 scripts/patch_policy_ocr_improved.py
+
       - name: Corregir logo y seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
 
