@@ -17,8 +17,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Verificar paso DNI
-        run: python3 scripts/patch_cliente_final.py
+      - name: Verificar fuente visible y entry point
+        run: |
+          python3 scripts/verify_visible_ocr.py
+          python3 - <<'PY'
+          from pathlib import Path
+          m=Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+          assert 'android:name=".RgaProActivity"' in m
+          a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
+          assert 'file:///android_asset/prototype/index_v3.html' in a
+          print('ENTRYPOINT/RENDERER OK')
+          PY
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
