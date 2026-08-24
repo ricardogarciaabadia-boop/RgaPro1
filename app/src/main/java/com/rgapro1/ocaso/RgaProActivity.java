@@ -8,7 +8,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.util.Base64;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -34,6 +33,7 @@ public class RgaProActivity extends Activity {
     private File cameraFile;
     private String cameraSide="document";
     private String frontRaw="", reverseRaw="";
+    private JSONObject frontData=new JSONObject(), reverseData=new JSONObject();
 
     @Override public void onCreate(android.os.Bundle b){
         super.onCreate(b);
@@ -53,6 +53,7 @@ public class RgaProActivity extends Activity {
     private class Bridge {
         @JavascriptInterface public void capture(String side){runOnUiThread(()->startCamera(side));}
         @JavascriptInterface public void pickPdf(){runOnUiThread(RgaProActivity.this::pickDocument);}
+        @JavascriptInterface public void saveDni(String json){runOnUiThread(()->saveDniResult(json));}
     }
 
     private void pickDocument(){
@@ -90,47 +91,68 @@ public class RgaProActivity extends Activity {
     }
 
     private void scanCamera(File f,String side){
-        try{ Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath()); runBitmapOcr(b,side,encodePreview(b)); }
+        try{ Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath()); runBitmapOcr(b,side); }
         catch(Exception e){err();}
     }
     private void scanUri(Uri u,String side){
         String type=getContentResolver().getType(u);
         if("application/pdf".equals(type)||String.valueOf(u).toLowerCase(Locale.ROOT).contains(".pdf")){
             PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
-                public void onSuccess(String text){ deliver(parse(text),side,""); }
+                public void onSuccess(String text){ deliver(parse(text),side); }
                 public void onError(Exception e){err();}
             });
             return;
         }
-        try(InputStream in=getContentResolver().openInputStream(u)){ Bitmap b=BitmapFactory.decodeStream(in); runBitmapOcr(b,side,encodePreview(b)); }
+        try(InputStream in=getContentResolver().openInputStream(u)){ Bitmap b=BitmapFactory.decodeStream(in); runBitmapOcr(b,side); }
         catch(Exception e){err();}
     }
 
-    private void runBitmapOcr(Bitmap original,String side,String preview){
+    private void runBitmapOcr(Bitmap original,String side){
         if(original==null){err();return;}
-        recognizer.process(InputImage.fromBitmap(original,0)).addOnSuccessListener(a->{ deliver(parse(a==null?"":a.getText()),side,preview); }).addOnFailureListener(x->err());
+        recognizer.process(InputImage.fromBitmap(original,0)).addOnSuccessListener(a->{ deliver(parse(a==null?"":a.getText()),side); original.recycle(); }).addOnFailureListener(x->{ original.recycle(); err(); });
     }
 
     private JSONObject parse(String raw){
         try{
             DniOcrParser.Result r=DniOcrParser.parse(raw);
             JSONObject o=new JSONObject();
-            o.put("documentNumber",r.dni); o.put("birthDate",r.birthDate); o.put("name",r.name); o.put("surname",r.surname); o.put("raw",raw==null?"":raw);
+            o.put("documentNumber",r.dni); o.put("birthDate",r.birthDate); o.put("name",r.name); o.put("surname",r.surname);
+            o.put("address",r.address); o.put("phone",r.phone); o.put("email",r.email); o.put("confidence",r.confidence);
+            o.put("raw",raw==null?"":raw);
             o.put("policyNumber",findPolicyNumber(raw)); o.put("policyType",findPolicyType(raw)); o.put("classification",classify(raw));
-            o.put("phone",find(raw,"(?:\\+34\\s*)?[6789]\\d{8}")); o.put("email",find(raw,"[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}")); o.put("address",findLabeled(raw,"DIRECCIÓN","DIRECCION","DOMICILIO","RIESGO"));
             return o;
         }catch(Exception e){return new JSONObject();}
     }
 
-    private void deliver(JSONObject o,String side,String preview){
+    private void deliver(JSONObject o,String side){
         try{
             o.put("side",side==null?"document":side);
-            o.put("preview",preview==null?"":preview);
-            if("front".equals(side))frontRaw=o.optString("raw","");
-            if("reverse".equals(side))reverseRaw=o.optString("raw","");
+            if("front".equals(side)){frontRaw=o.optString("raw","");frontData=o;}
+            if("reverse".equals(side)){reverseRaw=o.optString("raw","");reverseData=o;}
             o.put("frontRead",!frontRaw.isEmpty()); o.put("reverseRead",!reverseRaw.isEmpty());
+            o.put("combined",mergeDni(frontData,reverseData));
             web.evaluateJavascript("window.setOcrResult("+JSONObject.quote(o.toString())+");",null);
         }catch(Exception e){err();}
+    }
+
+    private JSONObject mergeDni(JSONObject a,JSONObject b){
+        try{
+            JSONObject m=new JSONObject();
+            String[] keys={"name","surname","documentNumber","birthDate","address","phone","email","confidence"};
+            for(String k:keys){String av=a.optString(k,"");String bv=b.optString(k,"");m.put(k,!av.isEmpty()?av:bv);}
+            m.put("side","combined");
+            return m;
+        }catch(Exception e){return new JSONObject();}
+    }
+
+    private void saveDniResult(String json){
+        try{
+            JSONObject o=new JSONObject(json==null?"{}":json);
+            JSONObject merged=o.optJSONObject("combined");
+            if(merged==null)merged=o;
+            getSharedPreferences("rgapro_dni",MODE_PRIVATE).edit().putString("last",merged.toString()).apply();
+            Toast.makeText(this,"DNI guardado. Se relacionará con el cliente correspondiente cuando coincidan sus datos.",Toast.LENGTH_LONG).show();
+        }catch(Exception e){Toast.makeText(this,"No se pudo guardar el DNI",Toast.LENGTH_LONG).show();}
     }
 
     private String classify(String raw){
@@ -141,9 +163,6 @@ public class RgaProActivity extends Activity {
     }
     private String findPolicyNumber(String raw){if(raw==null)return"";Matcher m=Pattern.compile("(?i)(?:N[º°O]\\s*)?(?:NÚMERO DE P[ÓO]LIZA|NUMERO DE POLIZA|P[ÓO]LIZA|POLIZA)\\s*[:#-]?\\s*([A-Z0-9./_-]{4,})").matcher(raw);return m.find()?m.group(1).trim():"";}
     private String findPolicyType(String raw){String u=(raw==null?"":raw).toUpperCase(Locale.ROOT);if(u.contains("DECESOS"))return"Decesos";if(u.contains("COMUNIDAD")||u.contains("COMUNIDADES"))return"Comunidades";if(u.contains("HOGAR"))return"Hogar";if(u.contains("AUTO")||u.contains("AUTOMOVIL")||u.contains("AUTOMÓVIL"))return"Auto";if(u.contains("VIDA"))return"Vida";return"Póliza";}
-    private String findLabeled(String raw,String...labels){if(raw==null)return"";for(String line:raw.split("\\R")){String u=line.toUpperCase(Locale.ROOT);for(String label:labels){int p=u.indexOf(label);if(p>=0){String v=line.substring(Math.min(line.length(),p+label.length())).replaceFirst("^[\\s:.-]+","").trim();if(!v.isEmpty())return v;}}}return"";}
-    private String find(String raw,String regex){if(raw==null)return"";Matcher m=Pattern.compile(regex,Pattern.CASE_INSENSITIVE).matcher(raw);return m.find()?m.group():"";}
-    private String encodePreview(Bitmap b)throws Exception{return"";}
     private void err(){Toast.makeText(this,"No se pudo leer el documento. Haz otra captura.",Toast.LENGTH_LONG).show();}
     @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();if(web!=null)web.destroy();super.onDestroy();}
 }
