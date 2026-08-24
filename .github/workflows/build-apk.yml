@@ -33,6 +33,8 @@ jobs:
           gradle-version: '8.7'
       - name: Aplicar cambios RgaPro 2.0
         run: python3 scripts/patch_final_v20.py
+      - name: Separar cámara DNI y documentos multipágina
+        run: python3 scripts/patch_ocr_input_modes.py
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generada
