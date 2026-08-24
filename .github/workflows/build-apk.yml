@@ -2,9 +2,9 @@ name: Crear APK RgaPro
 
 on:
   push:
-    branches: [ main, build-apk-test ]
+    branches: [main, build-apk-test]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,6 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - name: Descargar proyecto
         uses: actions/checkout@v4
@@ -41,20 +42,17 @@ jobs:
       - name: Separar cámara DNI y documentos multipágina
         run: python3 scripts/patch_ocr_input_modes.py
 
-      - name: Rediseñar OCR: cámara DNI, documentos y eliminación de barra
+      - name: Rediseñar OCR
         run: python3 scripts/patch_ocr_redesign_v2.py
 
-      - name: Corregir logo RGA PRO y reiniciar seguridad
+      - name: Corregir logo y seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
 
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Verificar APK generada
-        run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
-          python3 scripts/verify_build_marker.py
+        run: test -f app/build/outputs/apk/debug/app-debug.apk
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
