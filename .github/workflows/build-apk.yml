@@ -35,12 +35,10 @@ jobs:
         run: python3 scripts/patch_final_v20.py
       - name: Separar cámara DNI y documentos multipágina
         run: python3 scripts/patch_ocr_input_modes.py
+      - name: Rediseñar OCR: cámara DNI, documentos y eliminación de barra
+        run: python3 scripts/patch_ocr_redesign_v2.py
       - name: Corregir logo RGA PRO y reiniciar seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
-      - name: Rediseñar OCR y documentos
-        run: python3 scripts/patch_ocr_redesign_v21.py
-      - name: Fijar icono RGA PRO y eliminar barra visual
-        run: python3 scripts/patch_launcher_exact_v21.py
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK generada
