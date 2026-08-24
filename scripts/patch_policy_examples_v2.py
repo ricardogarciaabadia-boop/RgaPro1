@@ -1,13 +1,8 @@
 from pathlib import Path
 import re
 
-# Product-aware extraction for the supplied real-world Ocaso policy examples.
-# Keep the proven OCR engine intact; only improve field selection for policies.
-
 p=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java')
 s=p.read_text(encoding='utf-8')
-
-# Replace policy-specific parser helper if present or append before parse().
 marker='    private JSONObject parse(String raw)throws Exception{'
 if 'parsePolicyExamplesV2' not in s and marker in s:
     helper=r'''    private JSONObject parsePolicyExamplesV2(String raw)throws Exception{
@@ -27,8 +22,9 @@ if 'parsePolicyExamplesV2' not in s and marker in s:
         o.put("policyExpiry",first(text,
             "(?i)VENCIMIENTO[^\\d]{0,30}(\\d{1,2}[ /.-]\\d{1,2}[ /.-]\\d{4})",
             "(?i)HASTA\\s+LAS?\\s+0?\\s*HORAS?\\s+DEL\\s+(?:D[IÍ]A)?\\s*(\\d{1,2}[ /.-]\\d{1,2}[ /.-]\\d{4})"));
-        o.put("premiums",findPremium(text));
-        o.put("paymentFrequency",first(text,"(?i)FORMA\\s+DE\\s+PAGO\\s*[:.]?\\s*([A-ZÁÉÍÓÚ]+)"));
+        o.put("price",findPrice(text));
+        o.put("paymentFrequency",findPaymentFrequency(text));
+        o.put("premiums",o.optString("price",""));
         o.put("insureds",extractInsuredRowsV2(text));
         o.put("capitales",extractCapitalRowsV2(text,o.optJSONArray("insureds")==null?0:o.optJSONArray("insureds").length()));
         o.put("confidence",Math.min(99,policySignalsV2(text)*7));
@@ -39,18 +35,29 @@ if 'parsePolicyExamplesV2' not in s and marker in s:
     private String findAfter(String raw,String labelRegex){Matcher m=Pattern.compile("(?is)"+labelRegex+"\\s*[:.-]?\\s*([^\\r\\n]{3,140})").matcher(raw);return m.find()?m.group(1).trim():"";}
     private String cleanPolicyHolder(String v){if(v==null)return"";String x=v.replaceAll("\\s+"," ").trim();x=x.replaceFirst("(?i)^(?:DOC\\.?\\s*ID\\.?|TEL[ÉE]FONO|EMAIL)\\s*[:.-]?.*$","");return x.trim();}
     private String normalizeDateText(String v){return v.replaceAll("\\s+"," ").trim().replace('-','/').replace('.','/');}
-    private String findPolicyTypeV2(String raw){String u=raw.toUpperCase(Locale.ROOT);if(u.contains("COMUNIDADES")||u.contains("COMUNIDAD INTEGRAL"))return"Comunidades";if(u.contains("DECESOS INTEGRAL"))return"Decesos";if(u.contains("ASISTENCIA FAMILIAR"))return"Asistencia Familiar";if(u.contains("ACCIDENTES DE LA MUJER"))return"Accidentes de la Mujer";if(u.contains("VIDA A PRIMA PERIODICA")||u.contains("AHORRO GARANTIZADO FLEXIBLE"))return"Vida/Ahorro";if(u.contains("RESPONSABILIDAD CIVIL"))return"Responsabilidad Civil";if(u.contains("HOGAR PROTECCION")||u.contains("HOGAR SENIOR"))return"Hogar";return findPolicyType(raw);}
-    private String findPremium(String raw){Matcher m=Pattern.compile("(?is)(?:TOTAL RECIBO|TOT\\.? RECIBO)\\s*([0-9.,]+\\s*€?)").matcher(raw);if(m.find())return m.group(1).trim();m=Pattern.compile("(?is)(?:PRIMA NETA|IMPORTE DEL RECIBO|IMPORTE DEL SEGURO)\\s*[:.]?\\s*([0-9.,]+\\s*€?)").matcher(raw);return m.find()?m.group(1).trim():"";}
+    private String findPolicyTypeV2(String raw){String u=raw.toUpperCase(Locale.ROOT);if(u.contains("COMUNIDADES")||u.contains("COMUNIDAD INTEGRAL"))return"Comunidades";if(u.contains("DECESOS INTEGRAL"))return"Decesos";if(u.contains("ASISTENCIA FAMILIAR"))return"Asistencia Familiar";if(u.contains("ACCIDENTES DE LA MUJER"))return"Accidentes de la Mujer";if(u.contains("VIDA A PRIMA PERIODICA")||u.contains("AHORRO GARANTIZADO FLEXIBLE")||u.contains("PÓLIZA DE SEGURO DE VIDA INDIVIDUAL")||u.contains("OCASO VIDA"))return"Vida/Ahorro";if(u.contains("RESPONSABILIDAD CIVIL"))return"Responsabilidad Civil";if(u.contains("HOGAR PROTECCION")||u.contains("HOGAR SENIOR"))return"Hogar";return findPolicyType(raw);}
+    private String findPrice(String raw){
+        String[] pats={
+            "(?is)(?:TOT\\.?\\s*RECIBO|TOTAL\\s+RECIBO)\\s*[:.]?\\s*([0-9]{1,3}(?:[.]\\d{3})*,\\d{2})",
+            "(?is)(?:IMPORTE\\s+DEL\\s+RECIBO|IMPORTE\\s+DEL\\s+SEGURO|PRIMA\\s+NETA)\\s*[:.]?\\s*([0-9]{1,3}(?:[.]\\d{3})*,\\d{2})"
+        };
+        for(String p:pats){Matcher m=Pattern.compile(p).matcher(raw);if(m.find())return m.group(1)+" €";}
+        Matcher table=Pattern.compile("(?is)(?:TOT\\.?\\s*RECIBO|TOTAL\\s+RECIBO).{0,120}?(\\d{1,3}(?:[.]\\d{3})*,\\d{2})").matcher(raw);if(table.find())return table.group(1)+" €";
+        return"";
+    }
+    private String findPaymentFrequency(String raw){
+        Matcher m=Pattern.compile("(?i)FORMA\\s+DE\\s+PAGO\\s*[:.]?\\s*(MENSUAL|TRIMESTRAL|SEMESTRAL|ANUAL)").matcher(raw);if(m.find())return capitalizePayment(m.group(1));
+        String u=raw.toUpperCase(Locale.ROOT);String[] vals={"MENSUAL","TRIMESTRAL","SEMESTRAL","ANUAL"};for(String x:vals)if(u.contains(x))return capitalizePayment(x);return"";
+    }
+    private String capitalizePayment(String v){String x=v.toLowerCase(Locale.ROOT);return x.substring(0,1).toUpperCase(Locale.ROOT)+x.substring(1);}
     private JSONArray extractInsuredRowsV2(String raw){JSONArray out=new JSONArray();Matcher m=Pattern.compile("(?m)^\\s*(\\d{1,3})\\s+([0-9]{8}[A-Z])\\s+(.+?)\\s+(\\d{1,2}[ /.-]\\d{1,2}[ /.-]\\d{4})\\s+([MV])\\s+(\\d{1,2}[ /.-]\\d{1,2}[ /.-]\\d{4})\\s*$",Pattern.CASE_INSENSITIVE).matcher(raw.replace('\\r','\\n'));while(m.find()){try{JSONObject p=new JSONObject();p.put("row",m.group(1));p.put("identityNumber",m.group(2));p.put("name",clean(m.group(3)));p.put("birthDate",m.group(4));p.put("sex",m.group(5));p.put("rightsDate",m.group(6));out.put(p);}catch(Exception ignored){}}return out;}
     private JSONArray extractCapitalRowsV2(String raw,int count){JSONArray out=new JSONArray();Matcher m=Pattern.compile("(?mi)^\\s*(?:A\\s*-\\s*HUELVA|DECESOS|FALLECIMIENTO[^\\n]*)?[^\\n]*?((?:\\d{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+(?:[.,]\\d{2})?))\\s+((?:\\d{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+(?:[.,]\\d{2})?))(?:\\s+((?:\\d{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+(?:[.,]\\d{2})?)))?\\s*$").matcher(raw);while(m.find()){try{String whole=m.group();String u=whole.toUpperCase(Locale.ROOT);if(!(u.contains("DECES")||u.contains("FALLECIMIENTO")||u.contains("INVALIDEZ")||u.contains("CAPITAL")))continue;JSONObject r=new JSONObject();r.put("coverage",whole.replaceAll("\\s+"," ").trim());JSONArray vals=new JSONArray();for(int i=1;i<=m.groupCount();i++)if(m.group(i)!=null)vals.put(m.group(i));r.put("values",vals);out.put(r);}catch(Exception ignored){}}return out;}
     private int policySignalsV2(String raw){String u=raw.toUpperCase(Locale.ROOT);int s=0;String[] k={"PÓLIZA","POLIZA","TOMADOR","FECHA DE EFECTO","VENCIMIENTO","IMPORTE DEL SEGURO","PRIMA NETA","ASEGURADOS","CAPITALES","CONDICIONES PARTICULARES","OCASO","Nº DE PÓLIZA","NÚMERO DE PÓLIZA"};for(String x:k)if(u.contains(x))s++;return s;}
 
 '''
     s=s.replace(marker,helper+marker,1)
-# Change parse() body to product-aware parser while preserving DNI base behavior.
 old='    private JSONObject parse(String raw)throws Exception{return PolicyOcrParser.parse(raw);}'
 if old in s:
     s=s.replace(old,'    private JSONObject parse(String raw)throws Exception{JSONObject o=PolicyOcrParser.parse(raw);String type=findPolicyTypeV2(raw);if(!"Póliza".equals(type)||raw.toUpperCase(Locale.ROOT).contains("TOMADOR")||raw.toUpperCase(Locale.ROOT).contains("CONDICIONES PARTICULARES")){JSONObject p=parsePolicyExamplesV2(raw);for(java.util.Iterator<String> it=p.keys();it.hasNext();){String k=it.next();o.put(k,p.get(k));}}return o;}',1)
-
 p.write_text(s,encoding='utf-8')
-print('policy example patterns applied')
+print('price and payment frequency detection applied')
