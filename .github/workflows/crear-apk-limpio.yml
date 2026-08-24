@@ -8,4 +8,5 @@
           python3 scripts/patch_policy_crosslink.py || true
           python3 scripts/patch_policy_crosslink_v2.py || true
           python3 scripts/patch_ocr_document_classifier.py || true
-          python3 scripts/patch_document_classifier_strict_v2.py || true
+          # Desactivado temporalmente: falla si no existe looksLikeDniDocumentFinal
+          echo "Saltando patch_document_classifier_strict_v2"
