@@ -28,10 +28,12 @@ jobs:
           assert 'android:name=".RgaProActivity"' in m
           a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
           assert 'file:///android_asset/prototype/index_v3.html' in a
-          print('ENTRYPOINT/RENDERER OK')
+          h=Path('app/src/main/assets/prototype/index_v3.html').read_text(encoding='utf-8')
+          required=['DNI / NIE','DOCUMENTOS','Cámara para documentos','JPEG / PDF']
+          missing=[x for x in required if x not in h]
+          assert not missing, f'Missing required OCR UI: {missing}'
+          print('ENTRYPOINT/RENDERER/OCR UI OK')
           PY
-      - name: Aplicar parche Cliente 360 idempotente
-        run: python3 scripts/patch_cliente360_ui.py
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
