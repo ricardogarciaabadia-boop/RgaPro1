@@ -17,20 +17,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Aplicar parches RgaPro
+      - name: Verificar fuente real de la APK
         run: |
-          python3 scripts/patch_final_v20.py
-          python3 scripts/patch_import_reference_ocr.py
-          python3 scripts/patch_ocr_input_modes.py
-          python3 scripts/patch_ocr_two_buttons.py
-          python3 scripts/patch_dni_fields_only.py
-          python3 scripts/patch_policy_ocr_improved.py
-          python3 scripts/patch_policy_capital_link.py
-          python3 scripts/patch_policy_advanced_fix.py
-          python3 scripts/patch_security_logo_reset_v4.py
-          python3 scripts/patch_auth_reset_visible.py
-      - name: Verificar interfaz OCR visible
-        run: python3 scripts/verify_visible_ocr.py
+          python3 scripts/verify_visible_ocr.py
+          python3 - <<'PY'
+          from pathlib import Path
+          m=Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+          assert 'android:name=".RgaProActivity"' in m
+          print('Launcher = RgaProActivity')
+          a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
+          assert 'file:///android_asset/prototype/index_v3.html' in a
+          print('Real OCR renderer = prototype/index_v3.html')
+          PY
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
