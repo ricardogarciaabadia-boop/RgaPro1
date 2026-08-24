@@ -20,14 +20,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
       - name: Configurar Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
+
       - name: Instalar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -42,8 +45,20 @@ jobs:
       - name: Separar cámara DNI y documentos multipágina
         run: python3 scripts/patch_ocr_input_modes.py
 
+      - name: Limitar campos DNI y ajustar Comunidades
+        run: python3 scripts/patch_dni_fields_only.py
+
       - name: Mejorar OCR de pólizas
         run: python3 scripts/patch_policy_ocr_improved.py
+
+      - name: Mejorar decesos: asegurados, capitales y vínculos
+        run: python3 scripts/patch_policy_advanced.py
+
+      - name: Enlazar capitales con asegurados
+        run: python3 scripts/patch_policy_capital_link.py
+
+      - name: Corregir saltos de línea de decesos
+        run: python3 scripts/patch_policy_advanced_fix.py
 
       - name: Corregir logo y seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
