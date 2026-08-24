@@ -21,8 +21,6 @@ jobs:
           python3 scripts/patch_ocr_input_modes.py
           python3 scripts/patch_dni_fields_only.py
           python3 scripts/patch_policy_ocr_improved.py
-          python3 scripts/patch_policy_examples_v2.py
-          python3 scripts/patch_policy_advanced.py
           python3 scripts/patch_policy_capital_link.py
           python3 scripts/patch_policy_advanced_fix.py
           python3 scripts/patch_security_logo_reset_v4.py
