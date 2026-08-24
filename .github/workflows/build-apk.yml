@@ -48,8 +48,11 @@ jobs:
       - name: Limitar campos DNI y ajustar Comunidades
         run: python3 scripts/patch_dni_fields_only.py
 
-      - name: Mejorar OCR de pólizas
+      - name: Mejorar OCR general de pólizas
         run: python3 scripts/patch_policy_ocr_improved.py
+
+      - name: Aplicar patrones de pólizas reales aportadas
+        run: python3 scripts/patch_policy_examples_v2.py
 
       - name: Mejorar decesos: asegurados, capitales y vínculos
         run: python3 scripts/patch_policy_advanced.py
