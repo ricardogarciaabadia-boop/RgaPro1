@@ -1,7 +1,5 @@
 name: Crear APK RgaPro
-on:
-  workflow_dispatch:
-
+on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,19 +27,6 @@ jobs:
           python3 scripts/patch_policy_advanced_fix.py
           python3 scripts/patch_security_logo_reset_v4.py
           python3 scripts/patch_auth_reset_visible.py
-      - name: Verificar scripts Python
-        run: |
-          python3 -m py_compile scripts/patch_final_v20.py
-          python3 -m py_compile scripts/patch_import_reference_ocr.py
-          python3 -m py_compile scripts/patch_ocr_input_modes.py
-          python3 -m py_compile scripts/patch_dni_fields_only.py
-          python3 -m py_compile scripts/patch_policy_ocr_improved.py
-          python3 -m py_compile scripts/patch_policy_examples_v2.py
-          python3 -m py_compile scripts/patch_policy_advanced.py
-          python3 -m py_compile scripts/patch_policy_capital_link.py
-          python3 -m py_compile scripts/patch_policy_advanced_fix.py
-          python3 -m py_compile scripts/patch_security_logo_reset_v4.py
-          python3 -m py_compile scripts/patch_auth_reset_visible.py
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
