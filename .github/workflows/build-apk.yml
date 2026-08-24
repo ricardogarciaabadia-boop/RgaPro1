@@ -26,7 +26,10 @@ jobs:
           assert 'android:name=".RgaProActivity"' in m
           a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
           assert 'file:///android_asset/prototype/index_v3.html' in a
-          print('ENTRYPOINT/RENDERER OK')
+          assert 'backToApp' in a
+          h=Path('app/src/main/assets/prototype/index_v3.html').read_text(encoding='utf-8')
+          assert 'Volver a la aplicación' in h
+          print('ENTRYPOINT/RENDERER/BACK OK')
           PY
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
