@@ -48,6 +48,9 @@ jobs:
       - name: Corregir logo y seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
 
+      - name: Recuperar acceso y reinicio de seguridad
+        run: python3 scripts/patch_auth_reset_visible.py
+
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
 
