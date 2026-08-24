@@ -19,33 +19,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
       - name: Configurar Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
+
       - name: Instalar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+
       - name: Aplicar cambios RgaPro 2.0
         run: python3 scripts/patch_final_v20.py
+
       - name: Separar cámara DNI y documentos multipágina
         run: python3 scripts/patch_ocr_input_modes.py
+
       - name: Rediseñar OCR: cámara DNI, documentos y eliminación de barra
         run: python3 scripts/patch_ocr_redesign_v2.py
+
       - name: Corregir logo RGA PRO y reiniciar seguridad
         run: python3 scripts/patch_security_logo_reset_v4.py
+
       - name: Compilar APK Debug
         run: gradle assembleDebug --no-daemon --stacktrace
+
       - name: Verificar APK generada
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
           python3 scripts/verify_build_marker.py
+
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
