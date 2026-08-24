@@ -5,17 +5,17 @@ s = p.read_text(encoding='utf-8')
 required = [
     '🪪<br>DNI / NIE',
     '📄<br>DOCUMENTOS',
-    'RgaProCamera.capture(\'front\')',
-    'RgaProCamera.capture(\'reverse\')',
-    'RgaProCamera.capture(\'document\')',
+    "RgaProCamera.capture('front')",
+    "RgaProCamera.capture('reverse')",
+    "RgaProCamera.capture('document')",
     'RgaProCamera.pickPdf()',
 ]
 for x in required:
     assert x in s, f'Missing required OCR action/UI: {x}'
 for x in [
     'Detectar automáticamente',
-    'DNI / NIE</button>',
-    'Póliza</button>',
+    '<button id="btnDniLegacy"',
+    '<button id="btnPolicyLegacy"',
     'Tomar reverso',
     'Rotar',
     'Mejorar',
