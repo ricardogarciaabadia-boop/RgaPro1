@@ -2,9 +2,12 @@ name: Crear APK RgaPro
 
 on:
   push:
-    branches: [main, build-apk-test]
+    branches:
+      - main
+      - build-apk-test
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
