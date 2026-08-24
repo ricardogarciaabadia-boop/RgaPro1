@@ -29,20 +29,8 @@ jobs:
           python3 scripts/patch_policy_advanced_fix.py
           python3 scripts/patch_security_logo_reset_v4.py
           python3 scripts/patch_auth_reset_visible.py
-      - name: Verificar interfaz OCR fuente
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/assets/prototype/index_v3.html')
-          s=p.read_text(encoding='utf-8')
-          required=['>🪪 DNI</button>','>📄 DOCUMENTOS</button>','Cámara para documentos','JPEG / PDF']
-          forbidden=['id="ocrTypeDni"','id="ocrTypeDoc"','id="ocrTypePol"','onclick="rotate()"','onclick="toggleEnhance()"']
-          for x in required:
-              assert x in s, f'Falta elemento OCR: {x}'
-          for x in forbidden:
-              assert x not in s, f'Sigue presente interfaz OCR antigua: {x}'
-          print('OCR source UI verification OK')
-          PY
+      - name: Verificar interfaz OCR visible
+        run: python3 scripts/verify_visible_ocr.py
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
