@@ -1,7 +1,7 @@
-# RgaPro — versión de prueba 1.7
+# RgaPro — versión de prueba 2.0
 
-Base Android para pruebas privadas.
+Base Android para pruebas de RgaPro.
 
-Esta versión integra la pantalla real del prototipo con búsqueda global, clientes ordenados, fichas editables, pólizas desplegables, asegurados de decesos, OCR DNI/NIE con anverso y reverso, lectura de PDF y prioridades de vencimiento 60/40/30/7/1 días.
+Esta versión integra OCR separado para DNI/NIE y documentos multipágina, lectura de PDF/JPG, pólizas por producto, asegurados de decesos, búsqueda de coincidencias, prioridades de vencimiento y el icono oficial RGA PRO.
 
 La compilación de APK se realiza mediante GitHub Actions.
