@@ -22,7 +22,6 @@ import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import org.json.JSONObject;
 import java.io.*;
-import java.util.Locale;
 
 public class RgaProActivity extends Activity {
     private static final int PICK=8101, CAMERA=8102;
@@ -110,6 +109,8 @@ public class RgaProActivity extends Activity {
             o.put("name",r.name);
             o.put("surname",r.surname);
             o.put("address",r.address);
+            o.put("phone","");
+            o.put("email","");
             o.put("side",side==null?"document":side);
             o.put("confidence",r.confidence);
             if("front".equals(side)) frontRaw=JSONObject.valueToString(o);
@@ -132,8 +133,8 @@ public class RgaProActivity extends Activity {
             o.put("documentNumber",first(f,b,"documentNumber"));
             o.put("birthDate",first(f,b,"birthDate"));
             o.put("address",first(f,b,"address"));
-            o.put("phone","");
-            o.put("email","");
+            o.put("phone",first(f,b,"phone"));
+            o.put("email",first(f,b,"email"));
             o.put("confidence",Math.max(f.optInt("confidence",0),b.optInt("confidence",0)));
             return o;
         }catch(Exception e){return new JSONObject();}
