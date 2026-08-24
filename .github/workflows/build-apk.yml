@@ -1,70 +1,33 @@
 name: Crear APK RgaPro
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [main, build-apk-test]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-
+on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
-
       - uses: android-actions/setup-android@v4
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
-      - name: Aplicar base RgaPro 2.0
-        run: python3 scripts/patch_final_v20.py
-
-      - name: Aplicar referencia OCR del usuario
-        run: python3 scripts/patch_import_reference_ocr.py
-
-      - name: Separar cámara DNI y documentos multipágina
-        run: python3 scripts/patch_ocr_input_modes.py
-
-      - name: Limitar campos DNI y ajustar Comunidades
-        run: python3 scripts/patch_dni_fields_only.py
-
-      - name: Mejorar OCR general de pólizas
-        run: python3 scripts/patch_policy_ocr_improved.py
-
-      - name: Aplicar patrones de pólizas reales aportadas
-        run: python3 scripts/patch_policy_examples_v2.py
-
-      - name: Mejorar decesos: asegurados, capitales y vínculos
-        run: python3 scripts/patch_policy_advanced.py
-
-      - name: Enlazar capitales con asegurados
-        run: python3 scripts/patch_policy_capital_link.py
-
-      - name: Corregir saltos de línea de decesos
-        run: python3 scripts/patch_policy_advanced_fix.py
-
-      - name: Corregir logo y seguridad
-        run: python3 scripts/patch_security_logo_reset_v4.py
-
-      - name: Recuperar acceso y reinicio de seguridad
-        run: python3 scripts/patch_auth_reset_visible.py
-
-      - name: Verificar scripts Python
+      - name: Aplicar parches RgaPro
+        run: |
+          python3 scripts/patch_final_v20.py
+          python3 scripts/patch_import_reference_ocr.py
+          python3 scripts/patch_ocr_input_modes.py
+          python3 scripts/patch_dni_fields_only.py
+          python3 scripts/patch_policy_ocr_improved.py
+          python3 scripts/patch_policy_examples_v2.py
+          python3 scripts/patch_policy_advanced.py
+          python3 scripts/patch_policy_capital_link.py
+          python3 scripts/patch_policy_advanced_fix.py
+          python3 scripts/patch_security_logo_reset_v4.py
+          python3 scripts/patch_auth_reset_visible.py
+      - name: Verificar scripts
         run: |
           python3 -m py_compile scripts/patch_final_v20.py
           python3 -m py_compile scripts/patch_import_reference_ocr.py
@@ -77,13 +40,10 @@ jobs:
           python3 -m py_compile scripts/patch_policy_advanced_fix.py
           python3 -m py_compile scripts/patch_security_logo_reset_v4.py
           python3 -m py_compile scripts/patch_auth_reset_visible.py
-
-      - name: Compilar APK Debug
+      - name: Compilar APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Verificar APK generada
+      - name: Verificar APK
         run: test -f app/build/outputs/apk/debug/app-debug.apk
-
       - name: Subir APK
         uses: actions/upload-artifact@v4
         with:
