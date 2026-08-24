@@ -53,6 +53,7 @@ public class RgaProActivity extends Activity {
     private class Bridge {
         @JavascriptInterface public void capture(String side){runOnUiThread(()->startCamera(side));}
         @JavascriptInterface public void pickPdf(){runOnUiThread(RgaProActivity.this::pickDocument);}
+        @JavascriptInterface public void backToApp(){runOnUiThread(RgaProActivity.this::finish);}
     }
 
     private void pickDocument(){
@@ -90,25 +91,25 @@ public class RgaProActivity extends Activity {
     }
 
     private void scanCamera(File f,String side){
-        try{ Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath()); runBitmapOcr(b,side,encodePreview(b)); }
+        try{ Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath()); runBitmapOcr(b,side); }
         catch(Exception e){err();}
     }
     private void scanUri(Uri u,String side){
         String type=getContentResolver().getType(u);
         if("application/pdf".equals(type)||String.valueOf(u).toLowerCase(Locale.ROOT).contains(".pdf")){
             PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
-                public void onSuccess(String text){ deliver(parse(text),side,""); }
+                public void onSuccess(String text){ deliver(parse(text),side); }
                 public void onError(Exception e){err();}
             });
             return;
         }
-        try(InputStream in=getContentResolver().openInputStream(u)){ Bitmap b=BitmapFactory.decodeStream(in); runBitmapOcr(b,side,encodePreview(b)); }
+        try(InputStream in=getContentResolver().openInputStream(u)){ Bitmap b=BitmapFactory.decodeStream(in); runBitmapOcr(b,side); }
         catch(Exception e){err();}
     }
 
-    private void runBitmapOcr(Bitmap original,String side,String preview){
-        if(original==null){err();return;}
-        recognizer.process(InputImage.fromBitmap(original,0)).addOnSuccessListener(a->{ deliver(parse(a==null?"":a.getText()),side,preview); }).addOnFailureListener(x->err());
+    private void runBitmapOcr(Bitmap bitmap,String side){
+        if(bitmap==null){err();return;}
+        recognizer.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(a->{ deliver(parse(a==null?"":a.getText()),side); }).addOnFailureListener(x->err());
     }
 
     private JSONObject parse(String raw){
@@ -122,10 +123,9 @@ public class RgaProActivity extends Activity {
         }catch(Exception e){return new JSONObject();}
     }
 
-    private void deliver(JSONObject o,String side,String preview){
+    private void deliver(JSONObject o,String side){
         try{
             o.put("side",side==null?"document":side);
-            o.put("preview",preview==null?"":preview);
             if("front".equals(side))frontRaw=o.optString("raw","");
             if("reverse".equals(side))reverseRaw=o.optString("raw","");
             o.put("frontRead",!frontRaw.isEmpty()); o.put("reverseRead",!reverseRaw.isEmpty());
@@ -143,7 +143,6 @@ public class RgaProActivity extends Activity {
     private String findPolicyType(String raw){String u=(raw==null?"":raw).toUpperCase(Locale.ROOT);if(u.contains("DECESOS"))return"Decesos";if(u.contains("COMUNIDAD")||u.contains("COMUNIDADES"))return"Comunidades";if(u.contains("HOGAR"))return"Hogar";if(u.contains("AUTO")||u.contains("AUTOMOVIL")||u.contains("AUTOMÓVIL"))return"Auto";if(u.contains("VIDA"))return"Vida";return"Póliza";}
     private String findLabeled(String raw,String...labels){if(raw==null)return"";for(String line:raw.split("\\R")){String u=line.toUpperCase(Locale.ROOT);for(String label:labels){int p=u.indexOf(label);if(p>=0){String v=line.substring(Math.min(line.length(),p+label.length())).replaceFirst("^[\\s:.-]+","").trim();if(!v.isEmpty())return v;}}}return"";}
     private String find(String raw,String regex){if(raw==null)return"";Matcher m=Pattern.compile(regex,Pattern.CASE_INSENSITIVE).matcher(raw);return m.find()?m.group():"";}
-    private String encodePreview(Bitmap b)throws Exception{return"";}
     private void err(){Toast.makeText(this,"No se pudo leer el documento. Haz otra captura.",Toast.LENGTH_LONG).show();}
     @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();if(web!=null)web.destroy();super.onDestroy();}
 }
