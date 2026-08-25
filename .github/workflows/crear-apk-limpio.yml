@@ -54,7 +54,7 @@ jobs:
           python3 scripts/patch_policy_advanced_fix.py || true
           python3 scripts/patch_policy_capital_link.py || true
           python3 scripts/patch_logo_watermark.py || true
-          python3 scripts/patch_user_management_final.py || true
+          # Legacy user-management patch disabled: it injects a malformed Java lambda.
           python3 scripts/patch_user_login_final.py || true
           python3 scripts/patch_policy_document_pipeline_v4.py || true
           python3 scripts/patch_user_compile_safety.py || true
