@@ -61,6 +61,7 @@ jobs:
           python3 scripts/fix_cliente360_compile.py || true
           python3 scripts/fix_cliente360_state.py || true
           python3 scripts/patch_branding_final.py || true
+          python3 scripts/fix_user_management_refresh.py || true
           echo "Parches opcionales completados; se continúa con el build."
           exit 0
 
