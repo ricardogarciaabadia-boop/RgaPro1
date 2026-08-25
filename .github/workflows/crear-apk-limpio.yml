@@ -1,4 +1,41 @@
+name: Crear APK limpio
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v6
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: 14742923
+          accept-android-sdk-licenses: true
+          packages: tools platform-tools
+
+      - name: Instalar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.7'
+
       - name: Aplicar parches automáticos
+        shell: bash
         run: |
           set +e
           python3 scripts/patch_cliente360_ui.py || true
@@ -10,5 +47,37 @@
           python3 scripts/patch_policy_crosslink_v2.py || true
           python3 scripts/patch_ocr_document_classifier.py || true
           python3 scripts/patch_document_classifier_strict_v2.py || true
+          python3 scripts/patch_policy_people_general.py || true
+          python3 scripts/patch_policy_choices.py || true
+          python3 scripts/patch_policy_advanced.py || true
+          python3 scripts/patch_policy_deceso_noid.py || true
+          python3 scripts/patch_policy_advanced_fix.py || true
+          python3 scripts/patch_policy_capital_link.py || true
+          python3 scripts/patch_logo_watermark.py || true
+          python3 scripts/patch_user_management_final.py || true
+          python3 scripts/patch_user_login_final.py || true
+          python3 scripts/patch_policy_document_pipeline_v4.py || true
+          python3 scripts/patch_user_compile_safety.py || true
+          python3 scripts/fix_cliente360_compile.py || true
+          python3 scripts/fix_cliente360_state.py || true
+          python3 scripts/patch_branding_final.py || true
           echo "Parches opcionales completados; se continúa con el build."
           exit 0
+
+      - name: Limpiar proyecto
+        run: gradle clean --no-daemon
+
+      - name: Compilar APK Debug (prueba final)
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verificar APK generado
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: RgaPro-debug-limpio
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
