@@ -10,4 +10,5 @@
           python3 scripts/patch_policy_crosslink_v2.py || true
           python3 scripts/patch_ocr_document_classifier.py || true
           python3 scripts/patch_document_classifier_strict_v2.py || true
-          true
+          echo "Parches opcionales completados; se continúa con el build."
+          exit 0
