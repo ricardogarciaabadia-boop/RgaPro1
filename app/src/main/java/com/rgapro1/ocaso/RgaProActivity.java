@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -33,6 +35,7 @@ public class RgaProActivity extends Activity {
     private File cameraFile;
     private String cameraSide="document";
     private String frontRaw="", reverseRaw="";
+    private ValueCallback<Uri[]> pendingFileCallback;
 
     @Override public void onCreate(android.os.Bundle b){
         super.onCreate(b);
@@ -46,15 +49,26 @@ public class RgaProActivity extends Activity {
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view,String url){
                 super.onPageFinished(view,url);
-                // El acceso superior de Pólizas se elimina de la navegación principal;
-                // las pólizas siguen disponibles dentro de la ficha de cada cliente.
-                view.evaluateJavascript("(function(){var b=document.getElementById('n-policies');if(b)b.style.display='none';})();",null);
+                hideTopPolicies(view);
+            }
+        });
+        web.setWebChromeClient(new WebChromeClient(){
+            @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
+                if(pendingFileCallback!=null)pendingFileCallback.onReceiveValue(null);
+                pendingFileCallback=callback;
+                pickDocument();
+                return true;
             }
         });
         web.addJavascriptInterface(new Bridge(),"RgaProCamera");
         recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        // La versión completa contiene Inicio, Clientes, ficha 360, pólizas, OCR y alarmas.
+        // Se mantiene la versión completa existente: Inicio, Clientes, ficha de cliente,
+        // pólizas dentro de cliente, OCR y Alarmas.
         web.loadUrl("file:///android_asset/prototype/index.html");
+    }
+
+    private void hideTopPolicies(WebView view){
+        view.evaluateJavascript("(function(){var b=document.getElementById('n-policies');if(b){b.remove();}var ns=document.querySelectorAll('.nav button');for(var i=0;i<ns.length;i++){if((ns[i].textContent||'').trim().toLowerCase()==='pólizas'){ns[i].remove();}}})();",null);
     }
 
     private class Bridge {
@@ -66,8 +80,8 @@ public class RgaProActivity extends Activity {
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("*/*");
-        i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/jpeg","image/jpg","application/pdf"});
         i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         startActivityForResult(i,PICK);
     }
 
@@ -94,13 +108,38 @@ public class RgaProActivity extends Activity {
             if(res==RESULT_OK&&cameraFile!=null)scanCamera(cameraFile,cameraSide);
             return;
         }
-        if(r!=PICK||res!=RESULT_OK||d==null)return;
-        if(d.getClipData()!=null){
-            for(int i=0;i<d.getClipData().getItemCount();i++){
-                Uri u=d.getClipData().getItemAt(i).getUri();
-                scanUri(u,"document");
+        if(r!=PICK)return;
+        if(pendingFileCallback!=null){
+            ValueCallback<Uri[]> cb=pendingFileCallback;
+            pendingFileCallback=null;
+            if(res!=RESULT_OK||d==null){cb.onReceiveValue(null);return;}
+            if(d.getClipData()!=null){
+                int n=d.getClipData().getItemCount();
+                Uri[] values=new Uri[n];
+                for(int i=0;i<n;i++)values[i]=d.getClipData().getItemAt(i).getUri();
+                cb.onReceiveValue(values);
+            }else if(d.getData()!=null){
+                cb.onReceiveValue(new Uri[]{d.getData()});
+            }else cb.onReceiveValue(null);
+            return;
+        }
+        if(res!=RESULT_OK||d==null)return;
+        try{
+            if(d.getClipData()!=null){
+                for(int i=0;i<d.getClipData().getItemCount();i++){
+                    Uri u=d.getClipData().getItemAt(i).getUri();
+                    takePersistablePermission(u);
+                    scanUri(u,"document");
+                }
+            }else if(d.getData()!=null){
+                takePersistablePermission(d.getData());
+                scanUri(d.getData(),"document");
             }
-        } else if(d.getData()!=null) scanUri(d.getData(),"document");
+        }catch(Exception e){showError("No se pudo abrir el documento seleccionado");}
+    }
+
+    private void takePersistablePermission(Uri u){
+        try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}
     }
 
     private void scanCamera(File f,String side){
@@ -114,7 +153,8 @@ public class RgaProActivity extends Activity {
     private void scanUri(Uri u,String side){
         try{
             String type=getContentResolver().getType(u);
-            if("application/pdf".equals(type)||String.valueOf(u).toLowerCase(Locale.ROOT).contains(".pdf")){
+            String low=String.valueOf(u).toLowerCase(Locale.ROOT);
+            if("application/pdf".equals(type)||low.contains(".pdf")){
                 PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
                     public void onSuccess(String text){ deliver(parse(text),side,""); }
                     public void onError(Exception e){ showError("No se pudo leer el PDF"); }
@@ -124,7 +164,7 @@ public class RgaProActivity extends Activity {
             try(InputStream in=getContentResolver().openInputStream(u)){
                 if(in==null)throw new IOException("No se pudo abrir el archivo");
                 Bitmap b=BitmapFactory.decodeStream(in);
-                if(b==null)throw new IOException("Imagen no válida");
+                if(b==null)throw new IOException("El archivo no contiene una imagen compatible");
                 runBitmapOcr(b,side,encodePreview(b));
             }
         }catch(Exception e){showError("No se pudo abrir el documento");}
@@ -168,8 +208,6 @@ public class RgaProActivity extends Activity {
             if("reverse".equals(side))reverseRaw=o.optString("raw","");
             o.put("frontRead",!frontRaw.isEmpty()); o.put("reverseRead",!reverseRaw.isEmpty());
             final String js="window.setOcrResult("+JSONObject.quote(o.toString())+");";
-            // PdfOcrHelper entrega el resultado desde un hilo de trabajo. WebView y Toast
-            // deben tocarse exclusivamente desde el hilo de UI; esto evita el cierre de la APK.
             runOnUiThread(()->{
                 if(web==null||isFinishing())return;
                 web.evaluateJavascript(js,null);
@@ -189,5 +227,5 @@ public class RgaProActivity extends Activity {
     private String find(String raw,String regex){if(raw==null)return"";Matcher m=Pattern.compile(regex,Pattern.CASE_INSENSITIVE).matcher(raw);return m.find()?m.group():"";}
     private String encodePreview(Bitmap b)throws Exception{return"";}
     private void showError(String message){runOnUiThread(()->Toast.makeText(this,message,Toast.LENGTH_LONG).show());}
-    @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();if(web!=null)web.destroy();super.onDestroy();}
+    @Override protected void onDestroy(){if(pendingFileCallback!=null){pendingFileCallback.onReceiveValue(null);pendingFileCallback=null;}if(recognizer!=null)recognizer.close();if(web!=null)web.destroy();super.onDestroy();}
 }
