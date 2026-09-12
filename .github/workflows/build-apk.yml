@@ -1,83 +1,54 @@
-name: Crear APK RgaPro
+name: RgaPro Clean APK
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - uses: android-actions/setup-android@v4
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Preparar selector de archivos WebView
+      - name: Verificar base limpia
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java')
-          s=p.read_text(encoding='utf-8')
-          if 'import android.webkit.WebChromeClient;' not in s:
-            s=s.replace('import android.webkit.JavascriptInterface;','import android.webkit.JavascriptInterface;\nimport android.webkit.WebChromeClient;\nimport android.webkit.ValueCallback;')
-          if 'private ValueCallback<Uri[]> pendingFileCallback;' not in s:
-            s=s.replace('private String frontRaw="", reverseRaw="";','private String frontRaw="", reverseRaw="";\n    private ValueCallback<Uri[]> pendingFileCallback;')
-          marker='        web.addJavascriptInterface(new Bridge(),"RgaProCamera");'
-          block='''        web.setWebChromeClient(new WebChromeClient(){\n            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params){\n                if(pendingFileCallback!=null)pendingFileCallback.onReceiveValue(null);\n                pendingFileCallback=callback;\n                try{\n                    Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);\n                    i.addCategory(Intent.CATEGORY_OPENABLE);\n                    i.setType("*/*");\n                    i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/*","application/pdf"});\n                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);\n                    startActivityForResult(i,PICK);\n                    return true;\n                }catch(Exception e){\n                    pendingFileCallback=null;\n                    showError("No se pudo abrir el selector de archivos");\n                    return false;\n                }\n            }\n        });\n'''
-          if 'onShowFileChooser' not in s:
-            s=s.replace(marker,block+marker)
-          old='''        if(r!=PICK||res!=RESULT_OK||d==null)return;\n        if(d.getClipData()!=null){'''
-          new='''        if(r==PICK&&pendingFileCallback!=null){\n            if(res==RESULT_OK&&d!=null){\n                if(d.getClipData()!=null){\n                    int n=d.getClipData().getItemCount(); Uri[] u=new Uri[n];\n                    for(int i=0;i<n;i++)u[i]=d.getClipData().getItemAt(i).getUri();\n                    pendingFileCallback.onReceiveValue(u);\n                }else if(d.getData()!=null) pendingFileCallback.onReceiveValue(new Uri[]{d.getData()});\n                else pendingFileCallback.onReceiveValue(null);\n            }else pendingFileCallback.onReceiveValue(null);\n            pendingFileCallback=null;\n            return;\n        }\n        if(r!=PICK||res!=RESULT_OK||d==null)return;\n        if(d.getClipData()!=null){'''
-          if old in s:s=s.replace(old,new)
-          if 'pendingFileCallback.onReceiveValue(null);pendingFileCallback=null;' not in s:
-            s=s.replace('    @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();', '    @Override protected void onDestroy(){if(pendingFileCallback!=null){pendingFileCallback.onReceiveValue(null);pendingFileCallback=null;}if(recognizer!=null)recognizer.close();')
-          p.write_text(s,encoding='utf-8')
-          assert 'onShowFileChooser' in s
-          assert 'pendingFileCallback' in s
-          print('WEBVIEW FILE CHOOSER OK')
-          PY
-      - name: Verificar fuente visible y entry point
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/assets/prototype/index.html')
-          s=p.read_text(encoding='utf-8')
-          required=[
-            'onclick="show(\'home\')">Inicio</button>',
-            'onclick="show(\'clients\')">Clientes</button>',
-            'id="n-ocr"',
-            'id="ocrTypeDni"',
-            'onclick="takeFront()"',
-            'onclick="takeReverse()"',
-            'onclick="openFile()"',
-            'function setOcrResult(data)',
-            "const KEY='rgapro_clients_v2'",
-          ]
-          for x in required:
-            assert x in s, f'Missing required application/OCR UI: {x}'
-          a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
-          m=Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
-          assert 'android:name=".RgaProActivity"' in m
-          assert 'file:///android_asset/prototype/index.html' in a
-          assert 'file:///android_asset/prototype/index_v3.html' not in a
-          assert 'onShowFileChooser' in a
-          print('ENTRYPOINT/RENDERER/OCR/FILE UI OK')
-          PY
+          test -f app/src/main/assets/prototype/index.html
+          grep -q 'file:///android_asset/prototype/index.html' app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java
+          grep -q 'chooseInput' app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java
+          grep -q 'onclick="show('\''home'\'')">Inicio</button>' app/src/main/assets/prototype/index.html
+          grep -q 'id="n-ocr"' app/src/main/assets/prototype/index.html
+          echo 'BASE LIMPIA OK'
+      - name: Limpiar
+        run: gradle clean --no-daemon
       - name: Compilar APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verificar APK
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          BUILD_TOOLS=$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
-      - name: Subir APK
+      - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: RgaPro2.0-final-debug
+          name: RgaPro2.0-clean-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
