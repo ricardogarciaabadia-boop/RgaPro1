@@ -8,7 +8,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.util.Base64;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -47,7 +46,8 @@ public class RgaProActivity extends Activity {
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new Bridge(),"RgaProCamera");
         recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        web.loadUrl("file:///android_asset/prototype/index_v3.html");
+        // La versión completa contiene Inicio, Clientes, ficha 360, pólizas, OCR y alarmas.
+        web.loadUrl("file:///android_asset/prototype/index.html");
     }
 
     private class Bridge {
@@ -70,45 +70,76 @@ public class RgaProActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.CAMERA},CAMERA); return;
         }
         try{
-            File dir=new File(getCacheDir(),"rgapro_scan"); if(!dir.exists())dir.mkdirs();
+            File dir=new File(getCacheDir(),"rgapro_scan");
+            if(!dir.exists())dir.mkdirs();
             cameraFile=File.createTempFile("rgapro_",".jpg",dir);
             Uri out=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",cameraFile);
             Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             i.putExtra(MediaStore.EXTRA_OUTPUT,out);
             i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivityForResult(i,CAMERA);
-        }catch(Exception e){Toast.makeText(this,"No se pudo abrir la cámara",Toast.LENGTH_LONG).show();}
+        }catch(Exception e){showError("No se pudo abrir la cámara");}
     }
 
     @Override protected void onActivityResult(int r,int res,Intent d){
         super.onActivityResult(r,res,d);
-        if(r==CAMERA){ if(res==RESULT_OK&&cameraFile!=null)scanCamera(cameraFile,cameraSide); return; }
+        if(r==CAMERA){
+            if(res==RESULT_OK&&cameraFile!=null)scanCamera(cameraFile,cameraSide);
+            return;
+        }
         if(r!=PICK||res!=RESULT_OK||d==null)return;
         if(d.getClipData()!=null){
-            for(int i=0;i<d.getClipData().getItemCount();i++) scanUri(d.getClipData().getItemAt(i).getUri(),"document");
+            for(int i=0;i<d.getClipData().getItemCount();i++){
+                Uri u=d.getClipData().getItemAt(i).getUri();
+                scanUri(u,"document");
+            }
         } else if(d.getData()!=null) scanUri(d.getData(),"document");
     }
 
     private void scanCamera(File f,String side){
-        try{ Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath()); runBitmapOcr(b,side,encodePreview(b)); }
-        catch(Exception e){err();}
+        try{
+            Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());
+            if(b==null){showError("La foto no es válida");return;}
+            runBitmapOcr(b,side,encodePreview(b));
+        }catch(Exception e){showError("No se pudo procesar la foto");}
     }
+
     private void scanUri(Uri u,String side){
-        String type=getContentResolver().getType(u);
-        if("application/pdf".equals(type)||String.valueOf(u).toLowerCase(Locale.ROOT).contains(".pdf")){
-            PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
-                public void onSuccess(String text){ deliver(parse(text),side,""); }
-                public void onError(Exception e){err();}
-            });
-            return;
-        }
-        try(InputStream in=getContentResolver().openInputStream(u)){ Bitmap b=BitmapFactory.decodeStream(in); runBitmapOcr(b,side,encodePreview(b)); }
-        catch(Exception e){err();}
+        try{
+            String type=getContentResolver().getType(u);
+            if("application/pdf".equals(type)||String.valueOf(u).toLowerCase(Locale.ROOT).contains(".pdf")){
+                PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
+                    public void onSuccess(String text){ deliver(parse(text),side,""); }
+                    public void onError(Exception e){ showError("No se pudo leer el PDF"); }
+                });
+                return;
+            }
+            try(InputStream in=getContentResolver().openInputStream(u)){
+                if(in==null)throw new IOException("No se pudo abrir el archivo");
+                Bitmap b=BitmapFactory.decodeStream(in);
+                if(b==null)throw new IOException("Imagen no válida");
+                runBitmapOcr(b,side,encodePreview(b));
+            }
+        }catch(Exception e){showError("No se pudo abrir el documento");}
     }
 
     private void runBitmapOcr(Bitmap original,String side,String preview){
-        if(original==null){err();return;}
-        recognizer.process(InputImage.fromBitmap(original,0)).addOnSuccessListener(a->{ deliver(parse(a==null?"":a.getText()),side,preview); }).addOnFailureListener(x->err());
+        if(original==null){showError("Imagen no válida");return;}
+        try{
+            recognizer.process(InputImage.fromBitmap(original,0))
+                .addOnSuccessListener(a->{
+                    String text=a==null?"":a.getText();
+                    deliver(parse(text),side,preview);
+                    if(!original.isRecycled())original.recycle();
+                })
+                .addOnFailureListener(x->{
+                    if(!original.isRecycled())original.recycle();
+                    showError("No se pudo leer el documento");
+                });
+        }catch(Exception e){
+            if(!original.isRecycled())original.recycle();
+            showError("No se pudo iniciar el OCR");
+        }
     }
 
     private JSONObject parse(String raw){
@@ -129,8 +160,14 @@ public class RgaProActivity extends Activity {
             if("front".equals(side))frontRaw=o.optString("raw","");
             if("reverse".equals(side))reverseRaw=o.optString("raw","");
             o.put("frontRead",!frontRaw.isEmpty()); o.put("reverseRead",!reverseRaw.isEmpty());
-            web.evaluateJavascript("window.setOcrResult("+JSONObject.quote(o.toString())+");",null);
-        }catch(Exception e){err();}
+            final String js="window.setOcrResult("+JSONObject.quote(o.toString())+");";
+            // PdfOcrHelper entrega el resultado desde un hilo de trabajo. WebView y Toast
+            // deben tocarse exclusivamente desde el hilo de UI; esto evita el cierre de la APK.
+            runOnUiThread(()->{
+                if(web==null||isFinishing())return;
+                web.evaluateJavascript(js,null);
+            });
+        }catch(Exception e){showError("No se pudo mostrar el resultado OCR");}
     }
 
     private String classify(String raw){
@@ -144,6 +181,6 @@ public class RgaProActivity extends Activity {
     private String findLabeled(String raw,String...labels){if(raw==null)return"";for(String line:raw.split("\\R")){String u=line.toUpperCase(Locale.ROOT);for(String label:labels){int p=u.indexOf(label);if(p>=0){String v=line.substring(Math.min(line.length(),p+label.length())).replaceFirst("^[\\s:.-]+","").trim();if(!v.isEmpty())return v;}}}return"";}
     private String find(String raw,String regex){if(raw==null)return"";Matcher m=Pattern.compile(regex,Pattern.CASE_INSENSITIVE).matcher(raw);return m.find()?m.group():"";}
     private String encodePreview(Bitmap b)throws Exception{return"";}
-    private void err(){Toast.makeText(this,"No se pudo leer el documento. Haz otra captura.",Toast.LENGTH_LONG).show();}
+    private void showError(String message){runOnUiThread(()->Toast.makeText(this,message,Toast.LENGTH_LONG).show());}
     @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();if(web!=null)web.destroy();super.onDestroy();}
 }
