@@ -43,7 +43,14 @@ public class RgaProActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setAllowFileAccess(true);
         s.setAllowContentAccess(true);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient(){
+            @Override public void onPageFinished(WebView view,String url){
+                super.onPageFinished(view,url);
+                // El acceso superior de Pólizas se elimina de la navegación principal;
+                // las pólizas siguen disponibles dentro de la ficha de cada cliente.
+                view.evaluateJavascript("(function(){var b=document.getElementById('n-policies');if(b)b.style.display='none';})();",null);
+            }
+        });
         web.addJavascriptInterface(new Bridge(),"RgaProCamera");
         recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
         // La versión completa contiene Inicio, Clientes, ficha 360, pólizas, OCR y alarmas.
