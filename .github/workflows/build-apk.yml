@@ -17,6 +17,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Preparar selector de archivos WebView
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java')
+          s=p.read_text(encoding='utf-8')
+          if 'import android.webkit.WebChromeClient;' not in s:
+            s=s.replace('import android.webkit.JavascriptInterface;','import android.webkit.JavascriptInterface;\nimport android.webkit.WebChromeClient;\nimport android.webkit.ValueCallback;')
+          if 'private ValueCallback<Uri[]> pendingFileCallback;' not in s:
+            s=s.replace('private String frontRaw="", reverseRaw="";','private String frontRaw="", reverseRaw="";\n    private ValueCallback<Uri[]> pendingFileCallback;')
+          marker='        web.addJavascriptInterface(new Bridge(),"RgaProCamera");'
+          block='''        web.setWebChromeClient(new WebChromeClient(){\n            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params){\n                if(pendingFileCallback!=null)pendingFileCallback.onReceiveValue(null);\n                pendingFileCallback=callback;\n                try{\n                    Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);\n                    i.addCategory(Intent.CATEGORY_OPENABLE);\n                    i.setType("*/*");\n                    i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/*","application/pdf"});\n                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);\n                    startActivityForResult(i,PICK);\n                    return true;\n                }catch(Exception e){\n                    pendingFileCallback=null;\n                    showError("No se pudo abrir el selector de archivos");\n                    return false;\n                }\n            }\n        });\n'''
+          if 'onShowFileChooser' not in s:
+            s=s.replace(marker,block+marker)
+          old='''        if(r!=PICK||res!=RESULT_OK||d==null)return;\n        if(d.getClipData()!=null){'''
+          new='''        if(r==PICK&&pendingFileCallback!=null){\n            if(res==RESULT_OK&&d!=null){\n                if(d.getClipData()!=null){\n                    int n=d.getClipData().getItemCount(); Uri[] u=new Uri[n];\n                    for(int i=0;i<n;i++)u[i]=d.getClipData().getItemAt(i).getUri();\n                    pendingFileCallback.onReceiveValue(u);\n                }else if(d.getData()!=null) pendingFileCallback.onReceiveValue(new Uri[]{d.getData()});\n                else pendingFileCallback.onReceiveValue(null);\n            }else pendingFileCallback.onReceiveValue(null);\n            pendingFileCallback=null;\n            return;\n        }\n        if(r!=PICK||res!=RESULT_OK||d==null)return;\n        if(d.getClipData()!=null){'''
+          if old in s:s=s.replace(old,new)
+          if 'pendingFileCallback.onReceiveValue(null);pendingFileCallback=null;' not in s:
+            s=s.replace('    @Override protected void onDestroy(){if(recognizer!=null)recognizer.close();', '    @Override protected void onDestroy(){if(pendingFileCallback!=null){pendingFileCallback.onReceiveValue(null);pendingFileCallback=null;}if(recognizer!=null)recognizer.close();')
+          p.write_text(s,encoding='utf-8')
+          assert 'onShowFileChooser' in s
+          assert 'pendingFileCallback' in s
+          print('WEBVIEW FILE CHOOSER OK')
+          PY
       - name: Verificar fuente visible y entry point
         run: |
           python3 - <<'PY'
@@ -41,7 +65,8 @@ jobs:
           assert 'android:name=".RgaProActivity"' in m
           assert 'file:///android_asset/prototype/index.html' in a
           assert 'file:///android_asset/prototype/index_v3.html' not in a
-          print('ENTRYPOINT/RENDERER/OCR UI OK')
+          assert 'onShowFileChooser' in a
+          print('ENTRYPOINT/RENDERER/OCR/FILE UI OK')
           PY
       - name: Compilar APK
         run: gradle assembleDebug --no-daemon --stacktrace
