@@ -57,7 +57,10 @@ jobs:
           assert 'file:///android_asset/prototype/index_v3.html' not in a
           assert 'onShowFileChooser' in a
           assert 'chooseInput' in a
-          assert 'hideTopPolicies' in a
+          assert 'applyCleanUi' in a
+          assert 'setOcrResult' in a
+          assert 'encodePreview' in a
+          assert 'encodePdfPreview' in a
           print('BASE LIMPIA OK')
           PY
 
