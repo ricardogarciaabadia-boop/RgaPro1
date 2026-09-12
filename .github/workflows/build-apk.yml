@@ -25,7 +25,8 @@ jobs:
           m=Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
           assert 'android:name=".RgaProActivity"' in m
           a=Path('app/src/main/java/com/rgapro1/ocaso/RgaProActivity.java').read_text(encoding='utf-8')
-          assert 'file:///android_asset/prototype/index_v3.html' in a
+          assert 'file:///android_asset/prototype/index.html' in a
+          assert 'file:///android_asset/prototype/index_v3.html' not in a
           print('ENTRYPOINT/RENDERER OK')
           PY
       - name: Compilar APK
