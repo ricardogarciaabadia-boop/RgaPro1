@@ -16,6 +16,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import com.google.mlkit.vision.common.InputImage;
@@ -49,7 +50,7 @@ public class RgaProActivity extends Activity {
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view,String url){
                 super.onPageFinished(view,url);
-                hideTopPolicies(view);
+                applyCleanUi(view);
             }
         });
         web.setWebChromeClient(new WebChromeClient(){
@@ -62,18 +63,40 @@ public class RgaProActivity extends Activity {
         });
         web.addJavascriptInterface(new Bridge(),"RgaProCamera");
         recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        // Se mantiene la versión completa existente: Inicio, Clientes, ficha de cliente,
-        // pólizas dentro de cliente, OCR y Alarmas.
         web.loadUrl("file:///android_asset/prototype/index.html");
     }
 
-    private void hideTopPolicies(WebView view){
-        view.evaluateJavascript("(function(){var b=document.getElementById('n-policies');if(b){b.remove();}var ns=document.querySelectorAll('.nav button');for(var i=0;i<ns.length;i++){if((ns[i].textContent||'').trim().toLowerCase()==='pólizas'){ns[i].remove();}}})();",null);
+    private void applyCleanUi(WebView view){
+        String js=""+
+            "(function(){"+
+            "var p=document.getElementById('n-policies');if(p)p.remove();"+
+            "document.querySelectorAll('.nav button').forEach(function(b){if((b.textContent||'').trim().toLowerCase()==='pólizas')b.remove();});"+
+            "var homeGrid=document.querySelector('#home .grid');if(homeGrid)homeGrid.style.display='none';"+
+            "var dni=document.getElementById('ocrTypeDni'),doc=document.getElementById('ocrTypeDoc'),pol=document.getElementById('ocrTypePol');"+
+            "if(dni)dni.style.display='none';if(doc)doc.style.display='none';if(pol)pol.style.display='none';"+
+            "var ocr=document.querySelector('#ocr .ocrbox');"+
+            "if(ocr){var bs=ocr.querySelectorAll('button');bs.forEach(function(b){if((b.getAttribute('onclick')||'').indexOf('takeFront')<0)b.style.display='none';});"+
+            "var add=ocr.querySelector('button[onclick=\"takeFront()\"]');if(add){add.textContent='📷  Añadir documento';add.setAttribute('onclick','openOcrInput()');add.className='primary full';}"+
+            "}"+
+            "var step=document.getElementById('step');if(step)step.textContent='Añade un documento desde la cámara o desde archivos. El sistema lo clasifica y propone los datos.';"+
+            "window.openOcrInput=function(){if(window.RgaProCamera)RgaProCamera.chooseInput();};"+
+            "})();";
+        view.evaluateJavascript(js,null);
     }
 
     private class Bridge {
         @JavascriptInterface public void capture(String side){runOnUiThread(()->startCamera(side));}
         @JavascriptInterface public void pickPdf(){runOnUiThread(RgaProActivity.this::pickDocument);}
+        @JavascriptInterface public void chooseInput(){runOnUiThread(RgaProActivity.this::showInputChooser);}
+    }
+
+    private void showInputChooser(){
+        new AlertDialog.Builder(this)
+            .setTitle("Añadir documento")
+            .setItems(new String[]{"📷 Cámara","📁 Archivos / PDF"},(d,which)->{
+                if(which==0)startCamera("document");
+                else pickDocument();
+            }).show();
     }
 
     private void pickDocument(){
@@ -118,9 +141,8 @@ public class RgaProActivity extends Activity {
                 Uri[] values=new Uri[n];
                 for(int i=0;i<n;i++)values[i]=d.getClipData().getItemAt(i).getUri();
                 cb.onReceiveValue(values);
-            }else if(d.getData()!=null){
-                cb.onReceiveValue(new Uri[]{d.getData()});
-            }else cb.onReceiveValue(null);
+            }else if(d.getData()!=null)cb.onReceiveValue(new Uri[]{d.getData()});
+            else cb.onReceiveValue(null);
             return;
         }
         if(res!=RESULT_OK||d==null)return;
@@ -128,19 +150,15 @@ public class RgaProActivity extends Activity {
             if(d.getClipData()!=null){
                 for(int i=0;i<d.getClipData().getItemCount();i++){
                     Uri u=d.getClipData().getItemAt(i).getUri();
-                    takePersistablePermission(u);
-                    scanUri(u,"document");
+                    takePersistablePermission(u);scanUri(u,"document");
                 }
             }else if(d.getData()!=null){
-                takePersistablePermission(d.getData());
-                scanUri(d.getData(),"document");
+                takePersistablePermission(d.getData());scanUri(d.getData(),"document");
             }
         }catch(Exception e){showError("No se pudo abrir el documento seleccionado");}
     }
 
-    private void takePersistablePermission(Uri u){
-        try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}
-    }
+    private void takePersistablePermission(Uri u){try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}}
 
     private void scanCamera(File f,String side){
         try{
@@ -152,14 +170,12 @@ public class RgaProActivity extends Activity {
 
     private void scanUri(Uri u,String side){
         try{
-            String type=getContentResolver().getType(u);
-            String low=String.valueOf(u).toLowerCase(Locale.ROOT);
+            String type=getContentResolver().getType(u);String low=String.valueOf(u).toLowerCase(Locale.ROOT);
             if("application/pdf".equals(type)||low.contains(".pdf")){
                 PdfOcrHelper.process(this,u,new PdfOcrHelper.Callback(){
-                    public void onSuccess(String text){ deliver(parse(text),side,""); }
-                    public void onError(Exception e){ showError("No se pudo leer el PDF"); }
-                });
-                return;
+                    public void onSuccess(String text){deliver(parse(text),side,"");}
+                    public void onError(Exception e){showError("No se pudo leer el PDF");}
+                });return;
             }
             try(InputStream in=getContentResolver().openInputStream(u)){
                 if(in==null)throw new IOException("No se pudo abrir el archivo");
@@ -173,54 +189,33 @@ public class RgaProActivity extends Activity {
     private void runBitmapOcr(Bitmap original,String side,String preview){
         if(original==null){showError("Imagen no válida");return;}
         try{
-            recognizer.process(InputImage.fromBitmap(original,0))
-                .addOnSuccessListener(a->{
-                    String text=a==null?"":a.getText();
-                    deliver(parse(text),side,preview);
-                    if(!original.isRecycled())original.recycle();
-                })
-                .addOnFailureListener(x->{
-                    if(!original.isRecycled())original.recycle();
-                    showError("No se pudo leer el documento");
-                });
-        }catch(Exception e){
-            if(!original.isRecycled())original.recycle();
-            showError("No se pudo iniciar el OCR");
-        }
+            recognizer.process(InputImage.fromBitmap(original,0)).addOnSuccessListener(a->{
+                String text=a==null?"":a.getText();deliver(parse(text),side,preview);
+                if(!original.isRecycled())original.recycle();
+            }).addOnFailureListener(x->{if(!original.isRecycled())original.recycle();showError("No se pudo leer el documento");});
+        }catch(Exception e){if(!original.isRecycled())original.recycle();showError("No se pudo iniciar el OCR");}
     }
 
     private JSONObject parse(String raw){
         try{
-            DniOcrParser.Result r=DniOcrParser.parse(raw);
-            JSONObject o=new JSONObject();
-            o.put("documentNumber",r.dni); o.put("birthDate",r.birthDate); o.put("name",r.name); o.put("surname",r.surname); o.put("raw",raw==null?"":raw);
-            o.put("policyNumber",findPolicyNumber(raw)); o.put("policyType",findPolicyType(raw)); o.put("classification",classify(raw));
-            o.put("phone",find(raw,"(?:\\+34\\s*)?[6789]\\d{8}")); o.put("email",find(raw,"[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}")); o.put("address",findLabeled(raw,"DIRECCIÓN","DIRECCION","DOMICILIO","RIESGO"));
-            return o;
+            DniOcrParser.Result r=DniOcrParser.parse(raw);JSONObject o=new JSONObject();
+            o.put("documentNumber",r.dni);o.put("birthDate",r.birthDate);o.put("name",r.name);o.put("surname",r.surname);o.put("raw",raw==null?"":raw);
+            o.put("policyNumber",findPolicyNumber(raw));o.put("policyType",findPolicyType(raw));o.put("classification",classify(raw));
+            o.put("phone",find(raw,"(?:\\+34\\s*)?[6789]\\d{8}"));o.put("email",find(raw,"[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"));o.put("address",findLabeled(raw,"DIRECCIÓN","DIRECCION","DOMICILIO","RIESGO"));return o;
         }catch(Exception e){return new JSONObject();}
     }
 
     private void deliver(JSONObject o,String side,String preview){
         try{
-            o.put("side",side==null?"document":side);
-            o.put("preview",preview==null?"":preview);
-            if("front".equals(side))frontRaw=o.optString("raw","");
-            if("reverse".equals(side))reverseRaw=o.optString("raw","");
-            o.put("frontRead",!frontRaw.isEmpty()); o.put("reverseRead",!reverseRaw.isEmpty());
+            o.put("side",side==null?"document":side);o.put("preview",preview==null?"":preview);
+            if("front".equals(side))frontRaw=o.optString("raw","");if("reverse".equals(side))reverseRaw=o.optString("raw","");
+            o.put("frontRead",!frontRaw.isEmpty());o.put("reverseRead",!reverseRaw.isEmpty());
             final String js="window.setOcrResult("+JSONObject.quote(o.toString())+");";
-            runOnUiThread(()->{
-                if(web==null||isFinishing())return;
-                web.evaluateJavascript(js,null);
-            });
+            runOnUiThread(()->{if(web==null||isFinishing())return;web.evaluateJavascript(js,null);});
         }catch(Exception e){showError("No se pudo mostrar el resultado OCR");}
     }
 
-    private String classify(String raw){
-        String u=(raw==null?"":raw).toUpperCase(Locale.ROOT);
-        boolean dni=u.contains("DNI")||u.contains("NIE")||u.contains("IDESP")||u.matches("(?s).*\\b[XYZ]?[0-9]{7}[A-Z]\\b.*");
-        boolean pol=u.contains("PÓLIZA")||u.contains("POLIZA")||u.contains("TOMADOR")||u.contains("ASEGURADO")||u.contains("FECHA DE EFECTO")||u.contains("CONDICIONES PARTICULARES");
-        return dni?"DNI/NIE":pol?"Póliza":"Documento";
-    }
+    private String classify(String raw){String u=(raw==null?"":raw).toUpperCase(Locale.ROOT);boolean dni=u.contains("DNI")||u.contains("NIE")||u.contains("IDESP")||u.matches("(?s).*\\b[XYZ]?[0-9]{7}[A-Z]\\b.*");boolean pol=u.contains("PÓLIZA")||u.contains("POLIZA")||u.contains("TOMADOR")||u.contains("ASEGURADO")||u.contains("FECHA DE EFECTO")||u.contains("CONDICIONES PARTICULARES");return dni?"DNI/NIE":pol?"Póliza":"Documento";}
     private String findPolicyNumber(String raw){if(raw==null)return"";Matcher m=Pattern.compile("(?i)(?:N[º°O]\\s*)?(?:NÚMERO DE P[ÓO]LIZA|NUMERO DE POLIZA|P[ÓO]LIZA|POLIZA)\\s*[:#-]?\\s*([A-Z0-9./_-]{4,})").matcher(raw);return m.find()?m.group(1).trim():"";}
     private String findPolicyType(String raw){String u=(raw==null?"":raw).toUpperCase(Locale.ROOT);if(u.contains("DECESOS"))return"Decesos";if(u.contains("COMUNIDAD")||u.contains("COMUNIDADES"))return"Comunidades";if(u.contains("HOGAR"))return"Hogar";if(u.contains("AUTO")||u.contains("AUTOMOVIL")||u.contains("AUTOMÓVIL"))return"Auto";if(u.contains("VIDA"))return"Vida";return"Póliza";}
     private String findLabeled(String raw,String...labels){if(raw==null)return"";for(String line:raw.split("\\R")){String u=line.toUpperCase(Locale.ROOT);for(String label:labels){int p=u.indexOf(label);if(p>=0){String v=line.substring(Math.min(line.length(),p+label.length())).replaceFirst("^[\\s:.-]+","").trim();if(!v.isEmpty())return v;}}}return"";}
