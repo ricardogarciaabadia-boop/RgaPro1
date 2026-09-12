@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Parser OCR robusto para DNI/NIE español. Extrae solo datos esenciales para RgaPro. */
+/** Parser OCR robusto para DNI/NIE/TIE español. Extrae solo datos esenciales para RgaPro. */
 public final class DniOcrParser {
     public static final class Result {
         public String holder="", surname="", name="", dni="", birthDate="", nationality="", sex="";
@@ -29,7 +29,9 @@ public final class DniOcrParser {
         if(!mrz.isEmpty()){
             Matcher names=Pattern.compile("([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)+)<<([A-ZÁÉÍÓÚÑ]+(?:<[A-ZÁÉÍÓÚÑ]+)*)").matcher(mrz);
             if(names.find()){String s=names.group(1).replace('<',' ').replaceAll("\\s+"," ").trim();String n=names.group(2).replace('<',' ').replaceAll("\\s+"," ").trim();if(!s.isEmpty())r.surname=s;if(!n.isEmpty())r.name=n;}
-            Matcher id=Pattern.compile("(?:IDESP|IDESP<|IDESP<<)([0-9]{8}[A-Z])").matcher(mrz);if(id.find()&&isValidDni(id.group(1)))r.dni=id.group(1);
+            // IDESP aparece en DNI/NIE/TIE. Algunas tarjetas usan identificadores alfanuméricos.
+            Matcher id=Pattern.compile("(?:IDESP|IDESP<|IDESP<<)([A-Z0-9]{9})").matcher(mrz);
+            if(id.find()){String candidate=id.group(1).toUpperCase(Locale.ROOT);if(isValidDni(candidate)||isValidNie(candidate)||candidate.matches("[A-Z0-9]{9}"))r.dni=candidate;}
             String compact=mrz.replace("<","");Matcher dates=Pattern.compile("(\\d{6})\\d([MF])(\\d{6})").matcher(compact);if(dates.find()){r.birthDate=mrzDate(dates.group(1));r.sex=dates.group(2);}if(r.nationality.isEmpty()&&mrz.contains("ESP"))r.nationality="ESP";
         }
         if(r.surname.isEmpty()){Matcher m=Pattern.compile("APELLIDOS?\\s*[:.-]?\\s*([A-ZÁÉÍÓÚÑ]{2,}(?:\\s+[A-ZÁÉÍÓÚÑ]{2,}){1,3})").matcher(text);if(m.find())r.surname=cleanSurname(m.group(1));}
@@ -37,9 +39,9 @@ public final class DniOcrParser {
         if(r.birthDate.isEmpty())r.birthDate=findDateNear(text,"NACIMIENTO|NACIMIENT0|NACIMlENTO|NAC");
         if(r.dni.isEmpty())r.dni=findDni(text.replace('O','0'));
         if(!r.name.isEmpty()||!r.surname.isEmpty())r.holder=(r.name+" "+r.surname).trim();
-        int score=0;if(!r.dni.isEmpty()&&(isValidDni(r.dni)||isValidNie(r.dni)))score+=30;else if(!r.dni.isEmpty())score+=10;if(!r.name.isEmpty())score+=20;if(!r.surname.isEmpty())score+=25;if(!r.birthDate.isEmpty())score+=20;if(!r.nationality.isEmpty())score+=3;if(!r.sex.isEmpty())score+=2;r.confidence=Math.min(100,score);return r;
+        int score=0;if(!r.dni.isEmpty()&&(isValidDni(r.dni)||isValidNie(r.dni)||r.dni.matches("[A-Z0-9]{9}")))score+=30;else if(!r.dni.isEmpty())score+=10;if(!r.name.isEmpty())score+=20;if(!r.surname.isEmpty())score+=25;if(!r.birthDate.isEmpty())score+=20;if(!r.nationality.isEmpty())score+=3;if(!r.sex.isEmpty())score+=2;r.confidence=Math.min(100,score);return r;
     }
-    private static String normalizeOcr(String s){return s.toUpperCase(Locale.ROOT).replace("APELLlDOS","APELLIDOS").replace("APELLlDO","APELLIDO").replace("N0MBRE","NOMBRE").replace("N0MBRES","NOMBRES").replace("NACIMlENTO","NACIMIENTO").replace("NACIMlENT0","NACIMIENTO").replace("NAC10NALIDAD","NACIONALIDAD").replace("DOMIC1LIO","DOMICILIO").replace("VALlDEZ","VALIDEZ").replace("EMlSION","EMISION");}
+    private static String normalizeOcr(String s){return s.toUpperCase(Locale.ROOT).replace("APELLlDOS","APELLIDOS").replace("APELLlDO","APELLIDO").replace("N0MBRE","NOMBRE").replace("N0MBRES","NOMBRES").replace("NACIMlENTO","NACIMIENTO").replace("NACIMlENT0","NACIMIENTO").replace("NAC10NALIDAD","NACIONALIDAD").replace("DOMIC1LIO","DOMICILIO").replace("VALlDEZ","VALIDEZ").replace("EMlSION","EMISION").replace("IDESP ","IDESP");}
     private static String findDni(String text){Pattern labeled=Pattern.compile("(?:DNI|NIF|NIE)\\s*[:.-]?\\s*((?:[0-9]\\s*){8}|[XYZ]\\s*(?:[0-9]\\s*){7})\\s*([A-Z])\\b");Matcher m=labeled.matcher(text);String fallback="";while(m.find()){String c=(m.group(1)+m.group(2)).replaceAll("\\s","");if(c.matches("\\d{8}[A-Z]")&&isValidDni(c))return c;if(c.matches("[XYZ]\\d{7}[A-Z]")&&isValidNie(c))return c;if(fallback.isEmpty())fallback=c;}m=Pattern.compile("(?<![A-Z0-9])((?:\\d\\s*){8})([A-Z])(?![A-Z0-9])").matcher(text);while(m.find()){String c=(m.group(1)+m.group(2)).replaceAll("\\s","");if(isValidDni(c))return c;if(fallback.isEmpty())fallback=c;}m=Pattern.compile("(?<![A-Z0-9])([XYZ]\\s*(?:\\d\\s*){7})([A-Z])(?![A-Z0-9])").matcher(text);while(m.find()){String c=(m.group(1)+m.group(2)).replaceAll("\\s","");if(isValidNie(c))return c;if(fallback.isEmpty())fallback=c;}return fallback;}
     private static String findBirthDate(String text,String[] lines){String v=findDateNear(text,"NACIMIENTO|NACIMIENT0|NACIMlENTO");if(!v.isEmpty())return v;for(int i=0;i<lines.length;i++)if(lines[i].contains("NACIMIENTO")){String d=firstDate(lines[i]);if(!d.isEmpty())return d;if(i+1<lines.length){d=firstDate(lines[i+1]);if(!d.isEmpty())return d;}}return "";}
     private static String findDateNear(String text,String labels){Matcher m=Pattern.compile("(?:"+labels+")\\s*[:.-]?\\s*(\\d{2}\\s*[ /.-]\\s*\\d{2}\\s*[ /.-]\\s*\\d{4})").matcher(text);return m.find()?normalizeDate(m.group(1)):"";}
